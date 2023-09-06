@@ -18,12 +18,6 @@ tasks:
     # deploy nvmeof
     - ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/barakda1/nvmeof:0.0.3
     - ceph orch apply nvmeof mypool --placement="1 client.0"
-    # deploy nvmeof
-    - |
-      set -ex
-      #
-      ceph config get mgr mgr/cephadm/container_image_nvmeof
-      ceph orch apply nvmeof mypool --placement="1 $(hostname)"
 
 - cephadm.wait_for_service:
     service: nvmeof.mypool
