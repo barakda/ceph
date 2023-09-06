@@ -10,12 +10,14 @@ tasks:
     - ceph orch host ls
     - ceph orch device ls
     - ceph osd lspools
-
     # create pool
     - ceph osd pool create mypool
     - ceph osd pool application enable mypool rbd
     - ceph osd lspools
     - ceph osd pool ls detail
+    # deploy nvmeof
+    - ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/barakda1/nvmeof:0.0.3
+    - ceph orch apply nvmeof mypool --placement="1 client.0"
     # deploy nvmeof
     - |
       set -ex
