@@ -37,6 +37,8 @@ tasks:
       # print nvmeof start up logs
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
+      podman images
+      podman ps
 
 - install:
     extra_packages:
@@ -45,3 +47,9 @@ tasks:
 - exec:
     client.0:
     - "modprobe nvme-fabrics"
+    - |
+      set -ex
+      podman images
+      podman ps
+      podman run --rm nvme-cli --server-address "192.168.13.3" --server-port 5500 create_bdev --pool "mypool" --image "myimage" --bdev "mybdev"
+      
