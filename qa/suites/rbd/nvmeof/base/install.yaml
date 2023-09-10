@@ -19,10 +19,9 @@ tasks:
     - |
       set -ex
       #
-      HOST=$(hostname)
       ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/ceph/nvmeof:0.0.3
       ceph config get mgr mgr/cephadm/container_image_nvmeof
-      ceph orch apply nvmeof mypool --placement="1 $HOST"
+      ceph orch apply nvmeof mypool --placement="1 $(hostname)"
     - ceph orch ps --refresh
     - ceph versions
     - ceph -s
@@ -50,7 +49,11 @@ tasks:
     - "modprobe nvme-fabrics"
     - |
       set -ex
+      #
+      ip --brief address show
+      IP=$(hostname -I)
       podman images
       podman ps
-      echo "<---- $HOST --- $(hostname) ---->"
-      # podman run -it quay.io/ceph/nvmeof-cli:0.0.3 --server-address "192.168.13.3" --server-port 5500 create_bdev --pool "mypool" --image "myimage" --bdev "mybdev"
+      echo "<---- $(hostname) $IP $(hostname -I) ---->"
+      podman run -it quay.io/ceph/nvmeof-cli:0.0.3 --server-address $IP --server-port 5500 create_bdev --pool "mypool" --image "myimage" --bdev "mybdev"
+
