@@ -19,7 +19,7 @@ tasks:
     - |
       set -ex
       #
-      ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/barakda1/nvmeof:0.0.3
+      ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/ceph/nvmeof:0.0.3
       ceph config get mgr mgr/cephadm/container_image_nvmeof
       ceph orch apply nvmeof mypool --placement="1 $(hostname)"
     - ceph orch ps --refresh
@@ -37,8 +37,6 @@ tasks:
       # print nvmeof start up logs
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
-      podman images
-      podman ps
 
 - install:
     extra_packages:
@@ -49,7 +47,6 @@ tasks:
     - "modprobe nvme-fabrics"
     - |
       set -ex
+      podman run -it quay.io/ceph/nvmeof-cli:0.0.3 --server-address "192.168.13.3" --server-port 5500 create_bdev --pool "mypool" --image "myimage" --bdev "mybdev"
       podman images
       podman ps
-      podman run --rm nvme-cli --server-address "192.168.13.3" --server-port 5500 create_bdev --pool "mypool" --image "myimage" --bdev "mybdev"
-      
