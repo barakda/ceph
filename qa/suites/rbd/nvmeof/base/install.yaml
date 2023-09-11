@@ -42,6 +42,7 @@ tasks:
 #    extra_packages:
 #    - nvme-cli
 
+- exec:
     client.0:
     - "modprobe nvme-fabrics"
     - |
