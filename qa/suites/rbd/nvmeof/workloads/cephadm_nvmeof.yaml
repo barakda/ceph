@@ -13,3 +13,12 @@ tasks:
           s=$(ceph orch ps  | grep nvmeof.mypool | awk '{print $4}')
           echo $s
           [ $s = running ]
+- exec:
+    client.0:
+    - |
+      set -ex
+      #
+      IP=$(hostname -I)
+      IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
+      SRPORT="5500"
+      podman run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
