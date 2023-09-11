@@ -29,10 +29,6 @@ tasks:
 - cephadm.wait_for_service:
     service: nvmeof.mypool
 
-#- install:
-#    extra_packages:
-#    - nvme-cli
-
 - exec:
     host.a:
     - |
@@ -41,6 +37,10 @@ tasks:
       SERVICE=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       cat journalctl -u $SERVICE
       GATEWAY=$(echo $SERVICE | cut -d "@" -f2 | awk 'BEGIN{FS=OFS="."} NF--')
+
+#- install:
+#    extra_packages:
+#    - nvme-cli
 
     client.0:
     - "modprobe nvme-fabrics"
