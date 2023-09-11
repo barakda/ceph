@@ -34,9 +34,10 @@ tasks:
     - |
       set -ex
       # print nvmeof start up logs
-      SERVICE=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
-      cat journalctl -u $SERVICE
-      GATEWAY=$(echo $SERVICE | cut -d "@" -f2 | awk 'BEGIN{FS=OFS="."} NF--')
+      s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
+      PAGER=cat journalctl -u $s
+      g=$(echo $SERVICE | cut -d "@" -f2 | awk 'BEGIN{FS=OFS="."} NF--')
+      echo "<---- gateway-name is [ $g ]---->"
 
 #- install:
 #    extra_packages:
@@ -49,7 +50,7 @@ tasks:
       set -ex
       #
       HOSTNAME=$(hostname)
-      IP=$(hostname -I)
+      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
       IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
       POOL="mypool"
       MIMAGE="myimage"
@@ -58,6 +59,16 @@ tasks:
       NQN="nqn.2016-06.io.spdk:cnode1"
       PORT="4420"
       SRPORT="5500"
+      echo "<---- HOSTNAME is [ $HOSTNAME ]---->"
+      echo "<---- IP is [ $IP ]---->"
+      echo "<---- IMAGE is [ $IMAGE ]---->"
+      echo "<---- POOL is [ $POOL ]---->"
+      echo "<---- MIMAGE is [ $MIMAGE ]---->"
+      echo "<---- BDEV is [ $BDEV ]---->"
+      echo "<---- SERIAL is [ $SERIAL ]---->"
+      echo "<---- NQN is [ $NQN ]---->"
+      echo "<---- PORT is [ $PORT ]---->"
+      echo "<---- SRPORT is [ $SRPORT ]---->"
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_bdev --pool $POOL --image $MIMAGE --bdev $BDEV
       podman images
       podman ps
@@ -66,6 +77,6 @@ tasks:
       # podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN create_listener client.$POOL.$HOSTNAME -a $IP -s $PORT
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN -g $GATEWAY -a $IP -s $PORT
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_host --subnqn $NQN --host "*"
-      nvme discover -t tcp -a $IP -s $PORT
+      # nvme discover -t tcp -a $IP -s $PORT
       nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
       nvme list
