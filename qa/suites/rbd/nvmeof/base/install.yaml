@@ -36,8 +36,8 @@ tasks:
       # print nvmeof start up logs
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
-      g=$(echo $SERVICE | cut -d "@" -f2 | awk 'BEGIN{FS=OFS="."} NF--')
-      echo "<---- gateway-name is [ $g ]---->"
+      # g=$(echo $SERVICE | cut -d "@" -f2 | awk 'BEGIN{FS=OFS="."} NF--')
+      # echo "<---- gateway-name is [ $g ]---->"
 
 #- install:
 #    extra_packages:
