@@ -75,8 +75,8 @@ using ceph::crypto::MD5;
 #define RGW_SYS_PARAM_PREFIX "rgwx-"
 
 #define RGW_ATTR_ACL		RGW_ATTR_PREFIX "acl"
-#define RGW_ATTR_RATELIMIT		RGW_ATTR_PREFIX "ratelimit"
-#define RGW_ATTR_LC            RGW_ATTR_PREFIX "lc"
+#define RGW_ATTR_RATELIMIT	RGW_ATTR_PREFIX "ratelimit"
+#define RGW_ATTR_LC		RGW_ATTR_PREFIX "lc"
 #define RGW_ATTR_CORS		RGW_ATTR_PREFIX "cors"
 #define RGW_ATTR_ETAG    	RGW_ATTR_PREFIX "etag"
 #define RGW_ATTR_BUCKETS	RGW_ATTR_PREFIX "buckets"
@@ -1367,6 +1367,17 @@ struct multipart_upload_info
     DECODE_START(1, bl);
     decode(dest_placement, bl);
     DECODE_FINISH(bl);
+  }
+
+  void dump(Formatter *f) const {
+    dest_placement.dump(f);
+  }
+
+  static void generate_test_instances(std::list<multipart_upload_info*>& o) {
+    o.push_back(new multipart_upload_info);
+    o.push_back(new multipart_upload_info);
+    o.back()->dest_placement.name = "dest_placement";
+    o.back()->dest_placement.storage_class = "dest_storage_class";
   }
 };
 WRITE_CLASS_ENCODER(multipart_upload_info)

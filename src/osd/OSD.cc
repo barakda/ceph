@@ -80,10 +80,7 @@
 #include "messages/MOSDFull.h"
 #include "messages/MOSDOp.h"
 #include "messages/MOSDOpReply.h"
-#include "messages/MOSDBackoff.h"
 #include "messages/MOSDBeacon.h"
-#include "messages/MOSDRepOp.h"
-#include "messages/MOSDRepOpReply.h"
 #include "messages/MOSDBoot.h"
 #include "messages/MOSDPGTemp.h"
 #include "messages/MOSDPGReadyToMerge.h"
@@ -92,22 +89,12 @@
 #include "messages/MMonGetOSDMap.h"
 #include "messages/MOSDPGNotify.h"
 #include "messages/MOSDPGNotify2.h"
-#include "messages/MOSDPGQuery2.h"
 #include "messages/MOSDPGLog.h"
 #include "messages/MOSDPGRemove.h"
 #include "messages/MOSDPGInfo.h"
-#include "messages/MOSDPGInfo2.h"
 #include "messages/MOSDPGCreate2.h"
-#include "messages/MBackfillReserve.h"
-#include "messages/MRecoveryReserve.h"
 #include "messages/MOSDForceRecovery.h"
-#include "messages/MOSDECSubOpWrite.h"
-#include "messages/MOSDECSubOpWriteReply.h"
-#include "messages/MOSDECSubOpRead.h"
-#include "messages/MOSDECSubOpReadReply.h"
 #include "messages/MOSDPGCreated.h"
-#include "messages/MOSDPGUpdateLogMissing.h"
-#include "messages/MOSDPGUpdateLogMissingReply.h"
 
 #include "messages/MOSDPeeringOp.h"
 
@@ -3608,7 +3595,7 @@ int OSD::init()
   std::lock_guard lock(osd_lock);
   if (is_stopping())
     return 0;
-  tracing::osd::tracer.init("osd");
+  tracing::osd::tracer.init(cct, "osd");
   tick_timer.init();
   tick_timer_without_osd_lock.init();
   service.recovery_request_timer.init();
@@ -7514,7 +7501,7 @@ void OSD::ms_fast_dispatch(Message *m)
   OID_EVENT_TRACE_WITH_MSG(m, "MS_FAST_DISPATCH_END", false);
 }
 
-int OSD::ms_handle_authentication(Connection *con)
+int OSD::ms_handle_fast_authentication(Connection *con)
 {
   int ret = 0;
   auto s = ceph::ref_cast<Session>(con->get_priv());

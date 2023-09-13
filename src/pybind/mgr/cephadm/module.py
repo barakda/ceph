@@ -107,7 +107,7 @@ os._exit = os_exit_noop   # type: ignore
 DEFAULT_IMAGE = 'quay.io/ceph/ceph'
 DEFAULT_PROMETHEUS_IMAGE = 'quay.io/prometheus/prometheus:v2.43.0'
 DEFAULT_NODE_EXPORTER_IMAGE = 'quay.io/prometheus/node-exporter:v1.5.0'
-DEFAULT_NVMEOF_IMAGE = 'quay.io/ceph/nvmeof:0.0.2'
+DEFAULT_NVMEOF_IMAGE = 'quay.io/ceph/nvmeof:0.0.3'
 DEFAULT_LOKI_IMAGE = 'docker.io/grafana/loki:2.4.0'
 DEFAULT_PROMTAIL_IMAGE = 'docker.io/grafana/promtail:2.4.0'
 DEFAULT_ALERT_MANAGER_IMAGE = 'quay.io/prometheus/alertmanager:v0.25.0'
@@ -166,6 +166,13 @@ class CephadmOrchestrator(orchestrator.Orchestrator, MgrModule,
             type='bool',
             default=False,
             desc='Use libstoragemgmt during device scans',
+        ),
+        Option(
+            'inventory_list_all',
+            type='bool',
+            default=False,
+            desc='Whether ceph-volume inventory should report '
+            'more devices (mostly mappers (LVs / mpaths), partitions...)',
         ),
         Option(
             'daemon_cache_timeout',
@@ -543,6 +550,7 @@ class CephadmOrchestrator(orchestrator.Orchestrator, MgrModule,
             self.apply_spec_fails: List[Tuple[str, str]] = []
             self.max_osd_draining_count = 10
             self.device_enhanced_scan = False
+            self.inventory_list_all = False
             self.cgroups_split = True
             self.log_refresh_metadata = False
             self.default_cephadm_command_timeout = 0

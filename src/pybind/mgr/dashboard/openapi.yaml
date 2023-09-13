@@ -1990,6 +1990,16 @@ paths:
         required: true
         schema:
           type: string
+      - default: ''
+        in: query
+        name: group_name
+        schema:
+          type: string
+      - default: false
+        in: query
+        name: retain_snapshots
+        schema:
+          type: boolean
       responses:
         '202':
           content:
@@ -2019,6 +2029,11 @@ paths:
       - in: path
         name: vol_name
         required: true
+        schema:
+          type: string
+      - default: ''
+        in: query
+        name: group_name
         schema:
           type: string
       responses:
@@ -2052,6 +2067,9 @@ paths:
           application/json:
             schema:
               properties:
+                group_name:
+                  default: ''
+                  type: string
                 size:
                   type: integer
                 subvol_name:
@@ -2095,6 +2113,11 @@ paths:
       - in: query
         name: subvol_name
         required: true
+        schema:
+          type: string
+      - default: ''
+        in: query
+        name: group_name
         schema:
           type: string
       responses:
