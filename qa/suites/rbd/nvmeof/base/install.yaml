@@ -49,25 +49,7 @@ tasks:
 #    - nvme-cli
 
 - exec:
-    client.0:
-    - "modprobe nvme-fabrics"
-    - |
-      set -ex
-      #
-      IP3=$(hostname -I)
-      echo "<---- IP3 is [ $IP3 ]---->"
-
-- exec:
     client.1:
-    - "modprobe nvme-fabrics"
-    - |
-      set -ex
-      #
-      IP4=$(hostname -I)
-      echo "<---- IP4 is [ $IP4 ]---->"
-
-- exec:
-    client.2:
     - "modprobe nvme-fabrics"
     - |
       set -ex
@@ -83,13 +65,14 @@ tasks:
       PORT="4420"
       SRPORT="5500"
       nvme list
-      podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_bdev --pool $POOL --image $MIMAGE --bdev $BDEV
+      echo "<---- IP2i is [ $IP2 ]---->"
+      podman run -it $IMAGE --server-address $IP2 --server-port $SRPORT create_bdev --pool $POOL --image $MIMAGE --bdev $BDEV
       podman images
       podman ps
-      podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_subsystem --subnqn $NQN --serial $SERIAL
-      podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_namespace --subnqn $NQN --bdev $BDEV
-      podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN -g client.$POOL.$HOSTNAME -a $IP -s $PORT
-      podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_host --subnqn $NQN --host "*"
-      docker run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
-      nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
+      podman run -it $IMAGE --server-address $IP2 --server-port $SRPORT create_subsystem --subnqn $NQN --serial $SERIAL
+      podman run -it $IMAGE --server-address $IP2 --server-port $SRPORT add_namespace --subnqn $NQN --bdev $BDEV
+      podman run -it $IMAGE --server-address $IP2 --server-port $SRPORT create_listener -n $NQN -g client.$POOL.$HOSTNAME -a $IP -s $PORT
+      podman run -it $IMAGE --server-address $IP2 --server-port $SRPORT add_host --subnqn $NQN --host "*"
+      docker run -it $IMAGE --server-address $IP2 --server-port $SRPORT get_subsystems
+      nvme connect -t tcp --traddr $IP2 -s $PORT -n $NQN
       nvme list
