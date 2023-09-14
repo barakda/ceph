@@ -1,8 +1,0 @@
-tasks:
-  - cephadm.shell:
-      host.a:
-        - ceph orch ps
-        - |
-          set -ex
-          #
-          echo "<wl-host.a---- HOST/IP -- $(hostname)/$(hostname -I) ---->"
