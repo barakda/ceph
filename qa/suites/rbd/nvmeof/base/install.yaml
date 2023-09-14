@@ -16,9 +16,12 @@ tasks:
     - ceph osd lspools
     - ceph osd pool ls detail
     # deploy nvmeof
-    - ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/ceph/nvmeof:0.0.3
-    - ceph config get mgr mgr/cephadm/container_image_nvmeof
-    - ceph orch apply nvmeof mypool --placement="1 $(hostname)"
+    - |
+      set -ex
+      #
+      ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/ceph/nvmeof:0.0.3
+      ceph config get mgr mgr/cephadm/container_image_nvmeof
+      ceph orch apply nvmeof mypool --placement="1 $(hostname)"
     - ceph orch ps --refresh
     - ceph versions
     - ceph -s
@@ -36,8 +39,6 @@ tasks:
       # print nvmeof start up logs
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
-      # g=$(echo $SERVICE | cut -d "@" -f2 | awk 'BEGIN{FS=OFS="."} NF--')
-      # echo "<---- gateway-name is [ $g ]---->"
 
 #- install:
 #    extra_packages:
@@ -50,7 +51,7 @@ tasks:
       set -ex
       #
       HOSTNAME=$(hostname)
-      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+      IP=$(hostname -I)
       IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
       POOL="mypool"
       MIMAGE="myimage"
@@ -59,25 +60,10 @@ tasks:
       NQN="nqn.2016-06.io.spdk:cnode1"
       PORT="4420"
       SRPORT="5500"
-      echo "<---- HOSTNAME is [ $HOSTNAME ]---->"
-      echo "<---- IP is [ $IP ]---->"
-      echo "<---- IMAGE is [ $IMAGE ]---->"
-      echo "<---- POOL is [ $POOL ]---->"
-      echo "<---- MIMAGE is [ $MIMAGE ]---->"
-      echo "<---- BDEV is [ $BDEV ]---->"
-      echo "<---- SERIAL is [ $SERIAL ]---->"
-      echo "<---- NQN is [ $NQN ]---->"
-      echo "<---- PORT is [ $PORT ]---->"
-      echo "<---- SRPORT is [ $SRPORT ]---->"
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_bdev --pool $POOL --image $MIMAGE --bdev $BDEV
       podman images
       podman ps
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_subsystem --subnqn $NQN --serial $SERIAL
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_namespace --subnqn $NQN --bdev $BDEV
-      # podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN create_listener client.$POOL.$HOSTNAME -a $IP -s $PORT
-      podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN -g $GATEWAY -a $IP -s $PORT
+      podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN -g client.$POOL.$HOSTNAME -a $IP -s $PORT
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_host --subnqn $NQN --host "*"
-      docker run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
-      # nvme discover -t tcp -a $IP -s $PORT
-      nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
-      nvme list
