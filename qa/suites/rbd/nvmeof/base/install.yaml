@@ -54,6 +54,24 @@ tasks:
     - |
       set -ex
       #
+      IP3=$(hostname -I)
+      echo "<---- IP3 is [ $IP3 ]---->"
+
+- exec:
+    client.1:
+    - "modprobe nvme-fabrics"
+    - |
+      set -ex
+      #
+      IP4=$(hostname -I)
+      echo "<---- IP4 is [ $IP4 ]---->"
+
+- exec:
+    client.2:
+    - "modprobe nvme-fabrics"
+    - |
+      set -ex
+      #
       HOSTNAME=$(hostname)
       IP=$(hostname -I)
       IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
@@ -64,6 +82,7 @@ tasks:
       NQN="nqn.2016-06.io.spdk:cnode1"
       PORT="4420"
       SRPORT="5500"
+      nvme list
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_bdev --pool $POOL --image $MIMAGE --bdev $BDEV
       podman images
       podman ps
