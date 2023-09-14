@@ -19,7 +19,8 @@ tasks:
     - |
       set -ex
       #
-      $(hostname -I)
+      IP1=$(hostname -I)
+      echo "<---- IP1 is [ $IP1 ]---->"
       ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/ceph/nvmeof:0.0.3
       ceph config get mgr mgr/cephadm/container_image_nvmeof
       ceph orch apply nvmeof mypool --placement="1 $(hostname)"
@@ -38,7 +39,8 @@ tasks:
     - |
       set -ex
       # print nvmeof start up logs
-      $(hostname -I)
+      IP2=$(hostname -I)
+      echo "<---- IP2 is [ $IP2 ]---->"
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
 
