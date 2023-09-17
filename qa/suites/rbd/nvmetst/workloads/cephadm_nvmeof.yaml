@@ -1,0 +1,5 @@
+tasks:
+- cram:
+    clients:
+      client.1:
+      - qa/rbd/nvme.t

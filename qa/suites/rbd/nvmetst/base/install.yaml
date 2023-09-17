@@ -1,0 +1,24 @@
+use_shaman: True
+tasks:
+- cephadm:
+- cephadm.shell:
+    host.a:
+    - ceph orch status
+
+- exec:
+    client.0:
+    - |
+      set -ex
+      #
+      HOSTNAME=$(hostname)
+      IP=$(hostname -I)
+      echo "<exec.client.0---- HOST/IP -- $(hostname)/$(hostname -I) ---->"
+
+- exec:
+    client.1:
+    - |
+      set -ex
+      #
+      HOSTNAME=$(hostname)
+      IP=$(hostname -I)
+      echo "<exec.client.1---- HOST/IP -- $(hostname)/$(hostname -I) ---->"
