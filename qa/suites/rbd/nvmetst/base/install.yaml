@@ -1,9 +1,9 @@
 use_shaman: True
 tasks:
-- cephadm:
-- cephadm.shell:
-    host.a:
-    - ceph orch status
+#- cephadm:
+#- cephadm.shell:
+#    host.a:
+#    - ceph orch status
 
 - exec:
     client.0:

@@ -1,5 +1,7 @@
 tasks:
+- ceph_iscsi_client:
+    clients: [client.0]
 - cram:
     clients:
-      client.1:
+      client.0:
       - qa/rbd/nvme.t
