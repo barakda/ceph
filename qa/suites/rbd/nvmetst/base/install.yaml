@@ -8,10 +8,10 @@ tasks:
     - ceph orch ls
     - ceph orch host ls
     - ceph orch device ls
-- install:
-    extra_packages:
-      - iscsi-initiator-utils
-      - device-mapper-multipath
+#- install:
+#    extra_packages:
+#      - iscsi-initiator-utils
+#      - device-mapper-multipath
 
 - exec:
     client.0:
