@@ -5,17 +5,17 @@ tasks:
     parallel: False
     clients:
       client.0:
-      - src/test/cli-integration/rbd/gwcli_create.t
+      - src/test/cli-integration/rbd/nvme.t
       client.1:
-      - src/test/cli-integration/rbd/iscsi_client.t
+      - src/test/cli-integration/rbd/nvme.t
       client.2:
-      - src/test/cli-integration/rbd/gwcli_delete.t
+      - src/test/cli-integration/rbd/nvme.t
 - cram:
     parallel: False
     clients:
       client.0:
-      - src/test/cli-integration/rbd/rest_api_create.t
+      - src/test/cli-integration/rbd/nvme.t
       client.1:
-      - src/test/cli-integration/rbd/iscsi_client.t
+      - src/test/cli-integration/rbd/nvme.t
       client.2:
-      - src/test/cli-integration/rbd/rest_api_delete.t
+      - src/test/cli-integration/rbd/nvme.t
