@@ -1,12 +1,8 @@
 tasks:
-#- ceph_iscsi_client:
-#    clients: [client.1]
+- ceph_nvmeof_client:
+    clients: [client.1]
 - cram:
     parallel: False
     clients:
-      client.0:
-      - src/test/cli-integration/rbd/nvmeof.t
       client.1:
-      - src/test/cli-integration/rbd/nvmeof.t
-      client.2:
-      - src/test/cli-integration/rbd/nvmeof.t
+      - src/test/cli-integration/rbd/nvmeof_client.t

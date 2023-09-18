@@ -3,7 +3,7 @@ tasks:
       clients:
         client.1:
           - rbd/nvmeof_client.sh
-
+#
 #tasks:
 #- ceph_nvmeof_client:
 #    clients: [client.1]

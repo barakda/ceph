@@ -1,30 +1,23 @@
-Login to the target
-===================
+Connect NVMEoF target
+=====================
   $ IP=`cat /etc/ceph/iscsi-gateway.cfg |grep 'trusted_ip_list' | awk -F'[, ]' '{print $3}'`
-  > sudo iscsiadm -m discovery -t st -p $IP -l 2&> /dev/null
-  $ sleep 10
-  $ sudo ls /dev/disk/by-path/ |grep 'iscsi-iqn.2003-01.com.redhat.iscsi-gw:ceph-gw' |wc -l
-  2
-#
-# Make filesystem
-# ===============
-#   $ device=`sudo multipath -l | grep 'LIO-ORG,TCMU device' | awk '{print $1}'`
-#   > sudo mkfs.xfs /dev/mapper/$device -f | grep 'meta-data=/dev/mapper/mpath' | awk '{print $2}'
-#   isize=512
-#
-# Write/Read test
-# ===============
-#   $ device=`sudo multipath -l | grep 'LIO-ORG,TCMU device' | awk '{print $1}'`
-#   > sudo dd if=/dev/random of=/tmp/iscsi_tmpfile bs=1 count=1K status=none
-#   > sudo dd if=/tmp/iscsi_tmpfile of=/dev/mapper/$device bs=1 count=1K status=none
-#   > sudo dd if=/dev/mapper/$device of=/tmp/iscsi_tmpfile1 bs=1 count=1K status=none
-#   $ sudo diff /tmp/iscsi_tmpfile /tmp/iscsi_tmpfile1
-#
-# Logout the targets
-# ==================
-#   $ IP=`cat /etc/ceph/iscsi-gateway.cfg |grep 'trusted_ip_list' | awk -F'[, ]' '{print $3}'`
-#   > sudo iscsiadm -m node -T iqn.2003-01.com.redhat.iscsi-gw:ceph-gw -p $IP:3260 -u | grep 'successful' | awk -F']' '{print $2}'
-#    successful.
-#   $ IP=`cat /etc/ceph/iscsi-gateway.cfg |grep 'trusted_ip_list' | awk -F'[, ]' '{print $4}'`
-#   > sudo iscsiadm -m node -T iqn.2003-01.com.redhat.iscsi-gw:ceph-gw -p $IP:3260 -u | grep 'successful' | awk -F']' '{print $2}'
-#    successful.
+  $ HOSTNAME=$(hostname)
+  $ IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
+  $ POOL="mypool"
+  $ MIMAGE="myimage"
+  $ BDEV="mybdev"
+  $ SERIAL="SPDK00000000000001"
+  $ NQN="nqn.2016-06.io.spdk:cnode1"
+  $ PORT="4420"
+  $ SRPORT="5500"
+  $ sudo nvme list
+  $ sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_bdev --pool $POOL --image $MIMAGE --bdev $BDEV
+  $ sudo podman images
+  $ sudo podman ps
+  $ sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_subsystem --subnqn $NQN --serial $SERIAL
+  $ sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_namespace --subnqn $NQN --bdev $BDEV
+  $ sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN -g client.$POOL.$HOSTNAME -a $IP -s $PORT
+  $ sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_host --subnqn $NQN --host "*"
+  $ sudo docker run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
+  $ sudo nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
+  $ sudo nvme list
