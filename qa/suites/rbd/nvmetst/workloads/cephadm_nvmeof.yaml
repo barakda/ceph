@@ -1,6 +1,6 @@
 tasks:
-#- ceph_iscsi_client:
-#    clients: [client.1]
+- ceph_iscsi_client:
+    clients: [client.1]
 - cram:
     parallel: False
     clients:
