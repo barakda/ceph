@@ -69,5 +69,5 @@ tasks:
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN -g client.$POOL.$HOSTNAME -a $IP -s $PORT
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_host --subnqn $NQN --host "*"
       docker run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
-      nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
-      nvme list
+      #      nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
+      #      nvme list
