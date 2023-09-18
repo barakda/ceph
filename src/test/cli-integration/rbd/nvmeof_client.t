@@ -1,12 +1,12 @@
 Connect NVMEoF target
 =====================
   $ IP=`cat /etc/ceph/iscsi-gateway.cfg |grep 'trusted_ip_list' | awk -F'[, ]' '{print $3}'`
-  > sudo podman run -it quay.io/ceph/nvmeof-cli:0.0.3 --server-address $IP --server-port 5500 create_bdev --pool mypool --image myimage --bdev mybdev
+  > sudo podman run -it quay.io/ceph/nvmeof-cli:0.0.3 --server-address $IP --server-port 5500 create_bdev --pool nvmeofpool --image myimage --bdev nvmeof
 #   $ HOSTNAME=$(hostname)
 #   $ IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
-#   $ POOL="mypool"
-#   $ MIMAGE="myimage"
-#   $ BDEV="mybdev"
+#   $ POOL="nvmeofpool"
+#   $ MIMAGE="nvmeofimage"
+#   $ BDEV="nvmeofbdev"
 #   $ SERIAL="SPDK00000000000001"
 #   $ NQN="nqn.2016-06.io.spdk:cnode1"
 #   $ PORT="4420"
