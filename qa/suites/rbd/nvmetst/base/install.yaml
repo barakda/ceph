@@ -44,3 +44,11 @@ tasks:
       # print nvmeof start up logs
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
+
+#- install:
+#    extra_packages:
+#    - nvme-cli
+
+- exec:
+    client.1:
+    - "modprobe nvme-fabrics"
