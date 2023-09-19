@@ -42,8 +42,9 @@ tasks:
       #      s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       #      PAGER=cat journalctl -u $s
 
-- exec:
+- cephadm.shell:
     host.b:
+    - ceph orch ls
     - |
       set -ex
       #
