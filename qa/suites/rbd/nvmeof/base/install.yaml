@@ -39,7 +39,7 @@ tasks:
       echo -e "<---- exec.host.a---- HOST/IP -- $HOSTNAME/$IP ---->"
       #
       # print nvmeof start up logs
-      s=$(systemctl list-units | grep nvmeof.nvmeofpool | awk '{print $1}')
+      s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
 
 - exec:
@@ -53,10 +53,6 @@ tasks:
       #
       ceph orch host ls > /tmp/nodes.txt
       ceph orch host ls --format=json /tmp/nodes_j.txt
-
-
-- cephadm.wait_for_service:
-    service: nvmeof.mypool
 
 - exec:
     client.1:
@@ -72,6 +68,9 @@ tasks:
       cat /tmp/nodes.txt
       echo -e "host file print (json format)..."
       cat cat /tmp/nodes.txt
+
+- cephadm.wait_for_service:
+    service: nvmeof.mypool
 
 #    - |
 #      set -ex
