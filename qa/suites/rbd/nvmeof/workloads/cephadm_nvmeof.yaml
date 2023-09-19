@@ -13,3 +13,15 @@ tasks:
           s=$(ceph orch ps  | grep nvmeof.mypool | awk '{print $4}')
           echo $s
           [ $s = running ]
+  - workunit:
+      clients:
+        client.1:
+          - rbd/nvmeof_client.sh
+
+#  - ceph_nvmeof_client:
+#      clients: [client.1]
+#  - cram:
+#      parallel: False
+#      clients:
+#        client.1:
+#        - src/test/cli-integration/rbd/nvmeof_client.t
