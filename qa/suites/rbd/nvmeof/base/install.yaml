@@ -29,24 +29,49 @@ tasks:
     - rbd create mypool/myimage --size 8Gi
     - rbd ls mypool
 
-- cephadm.wait_for_service:
-    service: nvmeof.mypool
-
 - exec:
     host.a:
     - |
       set -ex
+      #
+      HOSTNAME=$(hostname)
+      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+      echo -e "<---- exec.host.a---- HOST/IP -- $HOSTNAME/$IP ---->"
+      #
       # print nvmeof start up logs
-      s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
+      s=$(systemctl list-units | grep nvmeof.nvmeofpool | awk '{print $1}')
       PAGER=cat journalctl -u $s
 
-#- install:
-#    extra_packages:
-#    - nvme-cli
+- exec:
+    host.b:
+    - |
+      set -ex
+      #
+      HOSTNAME=$(hostname)
+      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+      echo -e "<---- exec.host.b---- HOST/IP -- $HOSTNAME/$IP ---->"
+      #
+      ceph orch host ls > /tmp/nodes.txt
+      ceph orch host ls --format=json /tmp/nodes_j.txt
+
+
+- cephadm.wait_for_service:
+    service: nvmeof.mypool
 
 - exec:
     client.1:
     - "modprobe nvme-fabrics"
+    - |
+      set -ex
+      #
+      HOSTNAME=$(hostname)
+      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+      echo -e "<---- exec.client.1---- HOST/IP -- $HOSTNAME/$IP ---->"
+      #
+      echo -e "host file print..."
+      cat /tmp/nodes.txt
+      echo -e "host file print (json format)..."
+      cat cat /tmp/nodes.txt
 
 #    - |
 #      set -ex

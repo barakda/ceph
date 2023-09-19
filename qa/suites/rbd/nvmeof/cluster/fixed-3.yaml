@@ -5,7 +5,6 @@ roles:
   - osd.0
   - osd.1
   - client.0
-  - ceph.iscsi.iscsi.a
 - - mon.b
   - osd.2
   - osd.3
@@ -16,4 +15,3 @@ roles:
   - osd.6
   - osd.7
   - client.2
-  - ceph.iscsi.iscsi.b
