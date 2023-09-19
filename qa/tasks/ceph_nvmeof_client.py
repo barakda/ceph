@@ -29,8 +29,6 @@ def task(ctx, config):
 
         # the restart is needed after the above change is applied
         remote.run(args=['sudo', 'systemctl', 'restart', 'iscsid'])
-
-        remote.run(args=['sudo', 'modprobe', 'nvme-fabrics'])
         remote.run(args=['sudo', 'mpathconf', '--enable'])
         conf = dedent('''
         devices {
@@ -54,5 +52,6 @@ def task(ctx, config):
         remote.run(args=['sudo', 'systemctl', 'start', 'multipathd'])
 
         remote.run(args=['sudo', 'modprobe', 'dm_multipath'])
+        remote.run(args=['sudo', 'modprobe', 'nvme-fabrics'])
 
     yield
