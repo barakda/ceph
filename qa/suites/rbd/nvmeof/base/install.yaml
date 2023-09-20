@@ -52,8 +52,8 @@ tasks:
       IP=$(echo $(hostname -I) | cut -d ' ' -f1)
       echo -e "<---- exec.host.b---- HOST/IP -- $HOSTNAME/$IP ---->"
       #
+      ceph orch host ls
       ceph orch host ls > /tmp/nodes.txt
-      ceph orch host ls --format=json /tmp/nodes_j.txt
 
 - exec:
     client.1:
