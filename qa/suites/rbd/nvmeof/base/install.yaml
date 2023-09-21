@@ -57,9 +57,9 @@ tasks:
       IP=$(echo $(hostname -I) | cut -d ' ' -f1)
       echo -e "<---- exec.host.b---- HOST/IP -- $HOSTNAME/$IP ---->"
       #
-      ceph orch host ls
-      ceph orch host ls > /root/nodes.txt
-      cat /root/nodes.txt
+      # ceph orch host ls
+      # ceph orch host ls > /root/nodes.txt
+      # cat /root/nodes.txt
 
 - exec:
     client.1:
@@ -72,7 +72,12 @@ tasks:
       echo -e "<---- exec.client.1---- HOST/IP -- $HOSTNAME/$IP ---->"
       #
       echo -e "nodes file print..."
-      cat /root/nodes.txt
+      ls -lta /root
+      ceph orch host ls
+      echo -e "<--------------------->"
+      ceph orch host ls > /root/nodes2.txt
+      ls -lta /root
+      cat /root/nodes2.txt
 
 - cephadm.wait_for_service:
     service: nvmeof.mypool
