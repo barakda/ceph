@@ -44,17 +44,6 @@ tasks:
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
 
-- workunit:
-    clients:
-      client.0:
-        - cephadm/test_nvme_etc_hosts.sh
-        - |
-          set -ex
-          #
-          HOSTNAME=$(hostname)
-          IP=$(echo $(hostname -I) | cut -d ' ' -f1)
-          echo -e "<---- exec.client.0---- HOST/IP -- $HOSTNAME/$IP ---->"
-
 #- cephadm.shell:
 #    host.b:
 #    - ceph orch status

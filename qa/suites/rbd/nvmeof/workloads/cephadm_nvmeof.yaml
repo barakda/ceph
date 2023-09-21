@@ -1,20 +1,29 @@
 tasks:
-  - cephadm.shell:
-      host.a:
-        - ceph orch status
-        - ceph orch ps
-        - ceph orch ls
-        - ceph orch host ls
-        - ceph orch device ls
-        - ceph osd lspools
-         Test nvmeof.mypool is in 'running' state
+#  - cephadm.shell:
+#      host.a:
+#        - ceph orch status
+#        - ceph orch ps
+#        - ceph orch ls
+#        - ceph orch host ls
+#        - ceph orch device ls
+#        - ceph osd lspools
+#         Test nvmeof.mypool is in 'running' state
+#        - |
+#          set -ex
+#          echo "---------------------- done ---------------------"
+#          #          s=$(ceph orch ps  | grep nvmeof.mypool | awk '{print $4}')
+#          #          echo $s
+#          #          [ $s = running ]
+- workunit:
+    clients:
+      client.0:
+        - cephadm/test_nvme_etc_hosts.sh
         - |
           set -ex
-          echo "---------------------- done ---------------------"
-          #          s=$(ceph orch ps  | grep nvmeof.mypool | awk '{print $4}')
-          #          echo $s
-          #          [ $s = running ]
-
+          #
+          HOSTNAME=$(hostname)
+          IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+          echo -e "<---- exec.client.0---- HOST/IP -- $HOSTNAME/$IP ---->"
 #- workunit:
 #    clients:
 #      client.1:
