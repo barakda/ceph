@@ -25,6 +25,10 @@ tasks:
     - ceph orch ls
     - rbd create mypool/myimage --size 8Gi
     - rbd ls mypool
+    - |
+      set -ex
+      #
+      cat /proc/cpuinfo
 
 - workunit:
     clients:
