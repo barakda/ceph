@@ -44,40 +44,46 @@ tasks:
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
 
-- cephadm.shell:
-    host.b:
-    - ceph orch status
-    - ceph orch ps
-    - ceph orch ls
-    - ceph orch host ls
-    - |
-      set -ex
-      #
-      HOSTNAME=$(hostname)
-      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
-      echo -e "<---- exec.host.b---- HOST/IP -- $HOSTNAME/$IP ---->"
-      #
-      # ceph orch host ls
-      # ceph orch host ls > /root/nodes.txt
-      # cat /root/nodes.txt
+- workunit:
+    clients:
+      client.0:
+        - cephadm/test_nvme_etc_hosts.sh
+        - |
+          set -ex
+          #
+          HOSTNAME=$(hostname)
+          IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+          echo -e "<---- exec.client.0---- HOST/IP -- $HOSTNAME/$IP ---->"
 
-- exec:
-    client.1:
-    - "modprobe nvme-fabrics"
-    - |
-      set -ex
-      #
-      HOSTNAME=$(hostname)
-      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
-      echo -e "<---- exec.client.1---- HOST/IP -- $HOSTNAME/$IP ---->"
-      #
-      echo -e "nodes file print..."
-      ls -lta /root
-      ceph orch host ls
-      echo -e "<--------------------->"
-      ceph orch host ls > /root/nodes2.txt
-      ls -lta /root
-      cat /root/nodes2.txt
+#- cephadm.shell:
+#    host.b:
+#    - ceph orch status
+#    - ceph orch ps
+#    - ceph orch ls
+#    - ceph orch host ls
+#    - |
+#      set -ex
+#      #
+#      HOSTNAME=$(hostname)
+#      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+#      echo -e "<---- exec.host.b---- HOST/IP -- $HOSTNAME/$IP ---->"
+#      #
+#      ceph orch host ls
+#      ceph orch host ls > /root/nodes.txt
+#      cat /root/nodes.txt
+#
+#- exec:
+#    client.1:
+#    - "modprobe nvme-fabrics"
+#    - |
+#      set -ex
+#      #
+#      HOSTNAME=$(hostname)
+#      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+#      echo -e "<---- exec.client.1---- HOST/IP -- $HOSTNAME/$IP ---->"
+#      #
+#      echo -e "nodes file print..."
+#      cat /root/nodes.txt
 
 - cephadm.wait_for_service:
     service: nvmeof.mypool

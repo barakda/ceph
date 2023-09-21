@@ -7,7 +7,7 @@ tasks:
         - ceph orch host ls
         - ceph orch device ls
         - ceph osd lspools
-        # Test nvmeof.mypool is in 'running' state
+         Test nvmeof.mypool is in 'running' state
         - |
           set -ex
           echo "---------------------- done ---------------------"
