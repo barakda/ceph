@@ -16,14 +16,9 @@ tasks:
     - ceph osd lspools
     - ceph osd pool ls detail
     # deploy nvmeof
-    - |
-      set -ex
-      #
-      cat /proc/cpuinfo   # --------------------remove----------------
-      # quay.io/ceph/nvmeof:0.0.3  # --------------------remove----------------
-      ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/barakda1/nvmeof:0.0.3
-      ceph config get mgr mgr/cephadm/container_image_nvmeof
-      ceph orch apply nvmeof mypool --placement="1 $(hostname)"
+    - ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/barakda1/nvmeof:0.0.3
+    - ceph config get mgr mgr/cephadm/container_image_nvmeof
+    - ceph orch apply nvmeof mypool --placement="1 $(hostname)"
     - ceph orch ps --refresh
     - ceph versions
     - ceph -s
@@ -31,57 +26,40 @@ tasks:
     - rbd create mypool/myimage --size 8Gi
     - rbd ls mypool
 
+- workunit:
+    clients:
+      client.0:
+        - cephadm/test_nvme_etc_hosts.sh
+        - |
+          set -ex
+          #
+          HOSTNAME=$(hostname)
+          IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+          echo -e "<---- exec.client.0---- HOST/IP -- $HOSTNAME/$IP ---->"
+
+- cephadm.wait_for_service:
+    service: nvmeof.mypool
+
 - exec:
     host.a:
     - |
       set -ex
-      #
-      HOSTNAME=$(hostname)
-      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
-      echo -e "<---- exec.host.a---- HOST/IP -- $HOSTNAME/$IP ---->"
-      #
       # print nvmeof start up logs
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
 
-#- cephadm.shell:
-#    host.b:
-#    - ceph orch status
-#    - ceph orch ps
-#    - ceph orch ls
-#    - ceph orch host ls
-#    - |
-#      set -ex
-#      #
-#      HOSTNAME=$(hostname)
-#      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
-#      echo -e "<---- exec.host.b---- HOST/IP -- $HOSTNAME/$IP ---->"
-#      #
-#      ceph orch host ls
-#      ceph orch host ls > /root/nodes.txt
-#      cat /root/nodes.txt
-#
+#- install:
+#    extra_packages:
+#    - nvme-cli
+
 #- exec:
-#    client.1:
+#    client.0:
 #    - "modprobe nvme-fabrics"
 #    - |
 #      set -ex
 #      #
 #      HOSTNAME=$(hostname)
 #      IP=$(echo $(hostname -I) | cut -d ' ' -f1)
-#      echo -e "<---- exec.client.1---- HOST/IP -- $HOSTNAME/$IP ---->"
-#      #
-#      echo -e "nodes file print..."
-#      cat /root/nodes.txt
-
-- cephadm.wait_for_service:
-    service: nvmeof.mypool
-
-#    - |
-#      set -ex
-#      #
-#      HOSTNAME=$(hostname)
-#      IP=$(hostname -I)
 #      IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
 #      POOL="mypool"
 #      MIMAGE="myimage"
@@ -90,14 +68,15 @@ tasks:
 #      NQN="nqn.2016-06.io.spdk:cnode1"
 #      PORT="4420"
 #      SRPORT="5500"
-#      nvme list
 #      podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_bdev --pool $POOL --image $MIMAGE --bdev $BDEV
 #      podman images
 #      podman ps
 #      podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_subsystem --subnqn $NQN --serial $SERIAL
 #      podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_namespace --subnqn $NQN --bdev $BDEV
-#      podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN -g client.$POOL.$HOSTNAME -a $IP -s $PORT
+#      # podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN create_listener client.$POOL.$HOSTNAME -a $IP -s $PORT
+#      podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN -g $GATEWAY -a $IP -s $PORT
 #      podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_host --subnqn $NQN --host "*"
 #      docker run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
-#      #      nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
-#      #      nvme list
+#      # nvme discover -t tcp -a $IP -s $PORT
+#      # nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
+#      # nvme list
