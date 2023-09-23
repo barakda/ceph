@@ -48,6 +48,7 @@ tasks:
     host.a:
     - |
       set -ex
+      #
       # print nvmeof start up logs
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       PAGER=cat journalctl -u $s
