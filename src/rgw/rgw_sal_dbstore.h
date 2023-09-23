@@ -149,12 +149,6 @@ protected:
         acls() {
         }
 
-      DBBucket(DBStore *_st, const RGWBucketEnt& _e)
-        : StoreBucket(_e),
-        store(_st),
-        acls() {
-        }
-
       DBBucket(DBStore *_st, const RGWBucketInfo& _i)
         : StoreBucket(_i),
         store(_st),
@@ -163,12 +157,6 @@ protected:
 
       DBBucket(DBStore *_st, const rgw_bucket& _b, User* _u)
         : StoreBucket(_b, _u),
-        store(_st),
-        acls() {
-        }
-
-      DBBucket(DBStore *_st, const RGWBucketEnt& _e, User* _u)
-        : StoreBucket(_e, _u),
         store(_st),
         acls() {
         }
@@ -190,7 +178,7 @@ protected:
 					DoutPrefixProvider *dpp) override;
       virtual RGWAccessControlPolicy& get_acl(void) override { return acls; }
       virtual int set_acl(const DoutPrefixProvider *dpp, RGWAccessControlPolicy& acl, optional_yield y) override;
-      virtual int load_bucket(const DoutPrefixProvider *dpp, optional_yield y, bool get_stats = false) override;
+      virtual int load_bucket(const DoutPrefixProvider *dpp, optional_yield y) override;
       virtual int read_stats(const DoutPrefixProvider *dpp,
 			     const bucket_index_layout_generation& idx_layout,
 			     int shard_id,
@@ -199,12 +187,12 @@ protected:
           std::string *max_marker = nullptr,
           bool *syncstopped = nullptr) override;
       virtual int read_stats_async(const DoutPrefixProvider *dpp, const bucket_index_layout_generation& idx_layout, int shard_id, RGWGetBucketStats_CB* ctx) override;
-      virtual int sync_user_stats(const DoutPrefixProvider *dpp, optional_yield y) override;
-      virtual int update_container_stats(const DoutPrefixProvider *dpp, optional_yield y) override;
-      virtual int check_bucket_shards(const DoutPrefixProvider *dpp, optional_yield y) override;
+      int sync_user_stats(const DoutPrefixProvider *dpp, optional_yield y,
+                          RGWBucketEnt* ent) override;
+      int check_bucket_shards(const DoutPrefixProvider *dpp,
+                              uint64_t num_objs, optional_yield y) override;
       virtual int chown(const DoutPrefixProvider *dpp, User& new_user, optional_yield y) override;
       virtual int put_info(const DoutPrefixProvider *dpp, bool exclusive, ceph::real_time mtime, optional_yield y) override;
-      virtual bool is_owner(User* user) override;
       virtual int check_empty(const DoutPrefixProvider *dpp, optional_yield y) override;
       virtual int check_quota(const DoutPrefixProvider *dpp, RGWQuota& quota, uint64_t obj_size, optional_yield y, bool check_size_only = false) override;
       virtual int merge_and_store_attrs(const DoutPrefixProvider *dpp, Attrs& attrs, optional_yield y) override;
@@ -271,7 +259,7 @@ protected:
       return group->is_master_zonegroup();
     };
     virtual const std::string& get_api_name() const override { return group->api_name; };
-    virtual int get_placement_target_names(std::set<std::string>& names) const override;
+    virtual void get_placement_target_names(std::set<std::string>& names) const override;
     virtual const std::string& get_default_placement_name() const override {
       return group->default_placement.name; };
     virtual int get_hostnames(std::list<std::string>& names) const override {
@@ -318,7 +306,10 @@ protected:
     public:
       DBZone(DBStore* _store) : store(_store) {
 	realm = new RGWRealm();
-        zonegroup = new DBZoneGroup(store, std::make_unique<RGWZoneGroup>());
+	std::unique_ptr<RGWZoneGroup> rzg = std::make_unique<RGWZoneGroup>("default", "default");
+	rzg->api_name = "default";
+	rzg->is_master = true;
+        zonegroup = new DBZoneGroup(store, std::move(rzg));
         zone_public_config = new RGWZone();
         zone_params = new RGWZoneParams();
         current_period = new RGWPeriod();

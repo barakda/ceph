@@ -595,8 +595,13 @@ int MotrBucket::remove_bucket(const DoutPrefixProvider *dpp, bool delete_childre
 
     for (const auto& obj : results.objs) {
       rgw_obj_key key(obj.key);
-      /* xxx dang */
-      ret = rgw_remove_object(dpp, store, this, key);
+      if (key.instance.empty()) {
+        key.instance = "null";
+      }
+
+      std::unique_ptr<rgw::sal::Object> object = get_object(key);
+
+      ret = object->delete_object(dpp, null_yield);
       if (ret < 0 && ret != -ENOENT) {
         ldpp_dout(dpp, 0) << "ERROR: remove_bucket rgw_remove_object failed rc=" << ret << dendl;
 	      return ret;
@@ -709,7 +714,7 @@ int MotrBucket::put_info(const DoutPrefixProvider *dpp, bool exclusive, ceph::re
   return rc;
 }
 
-int MotrBucket::load_bucket(const DoutPrefixProvider *dpp, optional_yield y, bool get_stats)
+int MotrBucket::load_bucket(const DoutPrefixProvider *dpp, optional_yield y)
 {
   // Get bucket instance using bucket's name (string). or bucket id?
   bufferlist bl;
@@ -820,17 +825,14 @@ int MotrBucket::read_stats_async(const DoutPrefixProvider *dpp,
   return 0;
 }
 
-int MotrBucket::sync_user_stats(const DoutPrefixProvider *dpp, optional_yield y)
+int MotrBucket::sync_user_stats(const DoutPrefixProvider *dpp, optional_yield y,
+                                RGWBucketEnt* ent)
 {
   return 0;
 }
 
-int MotrBucket::update_container_stats(const DoutPrefixProvider *dpp)
-{
-  return 0;
-}
-
-int MotrBucket::check_bucket_shards(const DoutPrefixProvider *dpp)
+int MotrBucket::check_bucket_shards(const DoutPrefixProvider *dpp,
+                                    uint64_t num_objs)
 {
   return 0;
 }
@@ -1081,13 +1083,11 @@ bool MotrZoneGroup::placement_target_exists(std::string& target) const
   return !!group.placement_targets.count(target);
 }
 
-int MotrZoneGroup::get_placement_target_names(std::set<std::string>& names) const
+void MotrZoneGroup::get_placement_target_names(std::set<std::string>& names) const
 {
   for (const auto& target : group.placement_targets) {
     names.emplace(target.second.name);
   }
-
-  return 0;
 }
 
 int MotrZoneGroup::get_placement_tier(const rgw_placement_rule& rule,
@@ -1143,7 +1143,7 @@ bool MotrZone::get_redirect_endpoint(std::string* endpoint)
 
 bool MotrZone::has_zonegroup_api(const std::string& api) const
 {
-  return (zonegroup->api_name == api);
+  return (zonegroup.group.api_name == api);
 }
 
 const std::string& MotrZone::get_current_period_id()
@@ -1254,7 +1254,7 @@ int MotrObject::get_obj_attrs(optional_yield y, const DoutPrefixProvider* dpp, r
   bufferlist& blr = bl;
   auto iter = blr.cbegin();
   ent.decode(iter);
-  decode(attrs, iter);
+  decode(state.attrset, iter);
 
   return 0;
 }
@@ -1267,8 +1267,8 @@ int MotrObject::modify_obj_attrs(const char* attr_name, bufferlist& attr_val, op
     return r;
   }
   set_atomic();
-  attrs[attr_name] = attr_val;
-  return set_obj_attrs(dpp, &attrs, nullptr, y);
+  state.attrset[attr_name] = attr_val;
+  return set_obj_attrs(dpp, &state.attrset, nullptr, y);
 }
 
 int MotrObject::delete_obj_attrs(const DoutPrefixProvider* dpp, const char* attr_name, optional_yield y)
@@ -2504,7 +2504,7 @@ int MotrMultipartUpload::abort(const DoutPrefixProvider *dpp, CephContext *cct)
   string bucket_multipart_iname =
       "motr.rgw.bucket." + meta_obj->get_bucket()->get_name() + ".multiparts";
   rc = store->do_idx_op_by_name(bucket_multipart_iname,
-                                  M0_IC_GET, meta_obj->get_key().to_str(), bl);
+                                  M0_IC_GET, meta_obj->get_oid(), bl);
   if (rc < 0) {
     ldpp_dout(dpp, 0) << __func__ << ": Failed to get multipart upload. rc=" << rc << dendl;
     return rc == -ENOENT ? -ERR_NO_SUCH_UPLOAD : rc;

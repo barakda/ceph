@@ -34,23 +34,27 @@ namespace rgw::sal {
 
   int DBUser::list_buckets(const DoutPrefixProvider *dpp, const string& marker,
       const string& end_marker, uint64_t max, bool need_stats,
-      BucketList &buckets, optional_yield y)
+      BucketList &result, optional_yield y)
   {
     RGWUserBuckets ulist;
     bool is_truncated = false;
-    int ret;
 
-    buckets.clear();
-    ret = store->getDB()->list_buckets(dpp, "", info.user_id, marker, end_marker, max,
-        need_stats, &ulist, &is_truncated);
+    int ret = store->getDB()->list_buckets(dpp, "", info.user_id, marker,
+        end_marker, max, need_stats, &ulist, &is_truncated);
     if (ret < 0)
       return ret;
 
-    buckets.set_truncated(is_truncated);
-    for (const auto& ent : ulist.get_buckets()) {
-      buckets.add(std::make_unique<DBBucket>(this->store, ent.second, this));
+    result.buckets.clear();
+
+    for (auto& ent : ulist.get_buckets()) {
+      result.buckets.push_back(std::move(ent.second));
     }
 
+    if (is_truncated && !result.buckets.empty()) {
+      result.next_marker = result.buckets.back().bucket.name;
+    } else {
+      result.next_marker.clear();
+    }
     return 0;
   }
 
@@ -280,7 +284,7 @@ namespace rgw::sal {
     return 0;
   }
 
-  int DBBucket::load_bucket(const DoutPrefixProvider *dpp, optional_yield y, bool get_stats)
+  int DBBucket::load_bucket(const DoutPrefixProvider *dpp, optional_yield y)
   {
     int ret = 0;
 
@@ -306,17 +310,14 @@ namespace rgw::sal {
     return 0;
   }
 
-  int DBBucket::sync_user_stats(const DoutPrefixProvider *dpp, optional_yield y)
+  int DBBucket::sync_user_stats(const DoutPrefixProvider *dpp, optional_yield y,
+                                RGWBucketEnt* ent)
   {
     return 0;
   }
 
-  int DBBucket::update_container_stats(const DoutPrefixProvider *dpp, optional_yield y)
-  {
-    return 0;
-  }
-
-  int DBBucket::check_bucket_shards(const DoutPrefixProvider *dpp, optional_yield y)
+  int DBBucket::check_bucket_shards(const DoutPrefixProvider *dpp,
+                                    uint64_t num_objs, optional_yield y)
   {
     return 0;
   }
@@ -337,12 +338,6 @@ namespace rgw::sal {
 
     return ret;
 
-  }
-
-  /* Make sure to call get_bucket_info() if you need it first */
-  bool DBBucket::is_owner(User* user)
-  {
-    return (info.owner.compare(user->get_id()) == 0);
   }
 
   int DBBucket::check_empty(const DoutPrefixProvider *dpp, optional_yield y)
@@ -531,12 +526,10 @@ namespace rgw::sal {
     return !!group->placement_targets.count(target);
   }
 
-  int DBZoneGroup::get_placement_target_names(std::set<std::string>& names) const {
+  void DBZoneGroup::get_placement_target_names(std::set<std::string>& names) const {
     for (const auto& target : group->placement_targets) {
       names.emplace(target.second.name);
     }
-
-    return 0;
   }
 
   ZoneGroup& DBZone::get_zonegroup()
@@ -572,6 +565,9 @@ namespace rgw::sal {
 
   bool DBZone::has_zonegroup_api(const std::string& api) const
   {
+    if (api == "default")
+      return true;
+
     return false;
   }
 
@@ -1721,7 +1717,11 @@ namespace rgw::sal {
   int DBStore::get_zonegroup(const std::string& id, std::unique_ptr<ZoneGroup>* zg)
   {
     /* XXX: for now only one zonegroup supported */
-    ZoneGroup* group = new DBZoneGroup(this, std::make_unique<RGWZoneGroup>());
+    std::unique_ptr<RGWZoneGroup> rzg =
+        std::make_unique<RGWZoneGroup>("default", "default");
+    rzg->api_name = "default";
+    rzg->is_master = true;
+    ZoneGroup* group = new DBZoneGroup(this, std::move(rzg));
     if (!group)
       return -ENOMEM;
 

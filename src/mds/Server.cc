@@ -31,7 +31,6 @@
 #include "Mutation.h"
 #include "MetricsHandler.h"
 #include "cephfs_features.h"
-#include "MDSContext.h"
 
 #include "msg/Messenger.h"
 
@@ -361,9 +360,6 @@ void Server::dispatch(const cref_t<Message> &m)
   case CEPH_MSG_CLIENT_REQUEST:
     handle_client_request(ref_cast<MClientRequest>(m));
     return;
-  case CEPH_MSG_CLIENT_REPLY:
-    handle_client_reply(ref_cast<MClientReply>(m));
-    return;
   case CEPH_MSG_CLIENT_RECLAIM:
     handle_client_reclaim(ref_cast<MClientReclaim>(m));
     return;
@@ -619,6 +615,7 @@ void Server::handle_client_session(const cref_t<MClientSession> &m)
                                                     session->get_push_seq());
           if (session->info.has_feature(CEPHFS_FEATURE_MIMIC))
             reply->supported_features = supported_features;
+          session->auth_caps.get_cap_auths(&reply->cap_auths);
           mds->send_message_client(reply, session);
           if (mdcache->is_readonly()) {
             auto m = make_message<MClientSession>(CEPH_SESSION_FORCE_RO);
@@ -712,6 +709,17 @@ void Server::handle_client_session(const cref_t<MClientSession> &m)
 	break;
       }
 
+      if (session->auth_caps.root_squash_in_caps() && !client_metadata.features.test(CEPHFS_FEATURE_MDS_AUTH_CAPS_CHECK)) {
+	CachedStackStringStream css;
+	*css << "client lacks CEPHFS_FEATURE_MDS_AUTH_CAPS_CHECK needed to enforce 'root_squash' MDS auth caps";
+	send_reject_message(css->strv());
+	mds->clog->warn() << "client session (" << session->info.inst
+                          << ") lacks CEPHFS_FEATURE_MDS_AUTH_CAPS_CHECK "
+                          << " needed to enforce 'root_squash' MDS auth caps";
+	session->clear();
+	break;
+
+      }
       // Special case for the 'root' metadata path; validate that the claimed
       // root is actually within the caps of the session
       if (auto it = client_metadata.find("root"); it != client_metadata.end()) {
@@ -909,6 +917,7 @@ void Server::_session_logged(Session *session, uint64_t state_seq, bool open, ve
       reply->supported_features = supported_features;
       reply->metric_spec = supported_metric_spec;
     }
+    session->auth_caps.get_cap_auths(&reply->cap_auths);
     mds->send_message_client(reply, session);
     if (mdcache->is_readonly()) {
       auto m = make_message<MClientSession>(CEPH_SESSION_FORCE_RO);
@@ -1065,6 +1074,7 @@ void Server::finish_force_open_sessions(const map<client_t,pair<Session*,uint64_
 	  reply->supported_features = supported_features;
           reply->metric_spec = supported_metric_spec;
 	}
+	session->auth_caps.get_cap_auths(&reply->cap_auths);
 	mds->send_message_client(reply, session);
 
 	if (mdcache->is_readonly())
@@ -1552,6 +1562,12 @@ void Server::handle_client_reconnect(const cref_t<MClientReconnect> &m)
 	*css << "missing required features '" << missing_features << "'";
 	error_str = css->strv();
       }
+      if (session->auth_caps.root_squash_in_caps() &&
+          !session->info.client_metadata.features.test(CEPHFS_FEATURE_MDS_AUTH_CAPS_CHECK)) {
+	CachedStackStringStream css;
+	*css << "client lacks CEPHFS_FEATURE_MDS_AUTH_CAPS_CHECK needed to enforce 'root_squash' MDS auth caps";
+	error_str = css->strv();
+      }
     }
 
     if (!error_str.empty()) {
@@ -1579,6 +1595,7 @@ void Server::handle_client_reconnect(const cref_t<MClientReconnect> &m)
       reply->supported_features = supported_features;
       reply->metric_spec = supported_metric_spec;
     }
+    session->auth_caps.get_cap_auths(&reply->cap_auths);
     mds->send_message_client(reply, session);
     mds->clog->debug() << "reconnect by " << session->info.inst << " after " << delay;
   }
@@ -2010,23 +2027,20 @@ void Server::journal_and_reply(MDRequestRef& mdr, CInode *in, CDentry *dn, LogEv
     mdr->pin(dn);
 
   early_reply(mdr, in, dn);
-
+  
   mdr->committing = true;
   submit_mdlog_entry(le, fin, mdr, __func__);
-
+  
   if (mdr->client_request && mdr->client_request->is_queued_for_replay()) {
     if (mds->queue_one_replay()) {
       dout(10) << " queued next replay op" << dendl;
     } else {
       dout(10) << " journaled last replay op" << dendl;
     }
-  } else if (mdr->did_early_reply) {
+  } else if (mdr->did_early_reply)
     mds->locker->drop_rdlocks_for_early_reply(mdr.get());
-    if (dn && dn->is_waiter_for(CDentry::WAIT_UNLINK_FINISH))
-      mdlog->flush();
-  } else {
+  else
     mdlog->flush();
-  }
 }
 
 void Server::submit_mdlog_entry(LogEvent *le, MDSLogContextBase *fin, MDRequestRef& mdr,
@@ -2326,10 +2340,6 @@ void Server::reply_client_request(MDRequestRef& mdr, const ref_t<MClientReply> &
     mds->send_message_client(reply, session);
   }
 
-  if (client_inst.name.is_mds() && reply->get_op() == CEPH_MDS_OP_RENAME) {
-    mds->send_message(reply, mdr->client_request->get_connection());
-  }
-
   if (req->is_queued_for_replay() &&
       (mdr->has_completed || reply->get_result() < 0)) {
     if (reply->get_result() < 0) {
@@ -2560,38 +2570,6 @@ void Server::handle_client_request(const cref_t<MClientRequest> &req)
 
   dispatch_client_request(mdr);
   return;
-}
-
-void Server::handle_client_reply(const cref_t<MClientReply> &reply)
-{
-  dout(4) << "handle_client_reply " << *reply << dendl;
-
-  ceph_assert(reply->is_safe());
-  ceph_tid_t tid = reply->get_tid();
-
-  if (mds->internal_client_requests.count(tid) == 0) {
-    dout(1) << " no pending request on tid " << tid << dendl;
-    return;
-  }
-
-  auto &req = mds->internal_client_requests.at(tid);
-  CDentry *dn = req.get_dentry();
-
-  switch (reply->get_op()) {
-  case CEPH_MDS_OP_RENAME:
-    if (dn) {
-      dn->state_clear(CDentry::STATE_REINTEGRATING);
-
-      MDSContext::vec finished;
-      dn->take_waiting(CDentry::WAIT_REINTEGRATE_FINISH, finished);
-      mds->queue_waiters(finished);
-    }
-    break;
-  default:
-    dout(5) << " unknown client op " << reply->get_op() << dendl;
-  }
-
-  mds->internal_client_requests.erase(tid);
 }
 
 void Server::handle_osd_map()
@@ -4621,11 +4599,6 @@ void Server::handle_client_openc(MDRequestRef& mdr)
   if (!dn)
     return;
 
-  if (is_unlink_pending(dn)) {
-    wait_for_pending_unlink(dn, mdr);
-    return;
-  }
-
   CDentry::linkage_t *dnl = dn->get_projected_linkage();
   if (!excl && !dnl->is_null()) {
     // it existed.
@@ -6199,6 +6172,10 @@ void Server::handle_set_vxattr(MDRequestRef& mdr, CInode *cur)
       inodeno_t subvol_ino = realm->get_subvolume_ino();
       // can't create subvolume inside another subvolume
       if (subvol_ino && subvol_ino != cur->ino()) {
+	dout(20) << "subvol ino changed between rdlock release and xlock "
+		 << "policylock; subvol_ino: " << subvol_ino << ", "
+		 << "cur->ino: " << cur->ino()
+		 << dendl;
 	respond_to_request(mdr, -CEPHFS_EINVAL);
 	return;
       }
@@ -6213,10 +6190,13 @@ void Server::handle_set_vxattr(MDRequestRef& mdr, CInode *cur)
     auto pi = cur->project_inode(mdr, false, true);
     if (!srnode)
       pi.snapnode->created = pi.snapnode->seq = realm->get_newest_seq();
-    if (val)
+    if (val) {
+      dout(20) << "marking subvolume for ino: " << cur->ino() << dendl;
       pi.snapnode->mark_subvolume();
-    else
+    } else {
+      dout(20) << "clearing subvolume for ino: " << cur->ino() << dendl;
       pi.snapnode->clear_subvolume();
+    }
 
     mdr->no_early_reply = true;
     pip = pi.inode.get();
@@ -6882,84 +6862,6 @@ void Server::handle_client_getvxattr(MDRequestRef& mdr)
 
 // ------------------------------------------------
 
-struct C_WaitUnlinkToFinish : public MDSContext {
-protected:
-  MDCache *mdcache;
-  CDentry *dn;
-  MDSContext *fin;
-
-  MDSRank *get_mds() override
-  {
-    ceph_assert(mdcache != NULL);
-    return mdcache->mds;
-  }
-
-public:
-  C_WaitUnlinkToFinish(MDCache *m, CDentry *d, MDSContext *f) :
-    mdcache(m), dn(d), fin(f) {}
-  void finish(int r) override {
-    fin->complete(r);
-    dn->put(CDentry::PIN_PURGING);
-  }
-};
-
-bool Server::is_unlink_pending(CDentry *dn)
-{
-  CDentry::linkage_t *dnl = dn->get_projected_linkage();
-  if (!dnl->is_null() && dn->state_test(CDentry::STATE_UNLINKING)) {
-      return true;
-  }
-  return false;
-}
-
-void Server::wait_for_pending_unlink(CDentry *dn, MDRequestRef& mdr)
-{
-  dout(20) << __func__ << " dn " << *dn << dendl;
-  mds->locker->drop_locks(mdr.get());
-  auto fin = new C_MDS_RetryRequest(mdcache, mdr);
-  dn->get(CDentry::PIN_PURGING);
-  dn->add_waiter(CDentry::WAIT_UNLINK_FINISH, new C_WaitUnlinkToFinish(mdcache, dn, fin));
-}
-
-struct C_WaitReintegrateToFinish : public MDSContext {
-protected:
-  MDCache *mdcache;
-  CDentry *dn;
-  MDSContext *fin;
-
-  MDSRank *get_mds() override
-  {
-    ceph_assert(mdcache != NULL);
-    return mdcache->mds;
-  }
-
-public:
-  C_WaitReintegrateToFinish(MDCache *m, CDentry *d, MDSContext *f) :
-    mdcache(m), dn(d), fin(f) {}
-  void finish(int r) override {
-    fin->complete(r);
-    dn->put(CDentry::PIN_PURGING);
-  }
-};
-
-bool Server::is_reintegrate_pending(CDentry *dn)
-{
-  CDentry::linkage_t *dnl = dn->get_projected_linkage();
-  if (!dnl->is_null() && dn->state_test(CDentry::STATE_REINTEGRATING)) {
-      return true;
-  }
-  return false;
-}
-
-void Server::wait_for_pending_reintegrate(CDentry *dn, MDRequestRef& mdr)
-{
-  dout(20) << __func__ << " dn " << *dn << dendl;
-  mds->locker->drop_locks(mdr.get());
-  auto fin = new C_MDS_RetryRequest(mdcache, mdr);
-  dn->get(CDentry::PIN_PURGING);
-  dn->add_waiter(CDentry::WAIT_REINTEGRATE_FINISH, new C_WaitReintegrateToFinish(mdcache, dn, fin));
-}
-
 // MKNOD
 
 class C_MDS_mknod_finish : public ServerLogContext {
@@ -7025,11 +6927,6 @@ void Server::handle_client_mknod(MDRequestRef& mdr)
   CDentry *dn = rdlock_path_xlock_dentry(mdr, true, false, false, S_ISREG(mode));
   if (!dn)
     return;
-
-  if (is_unlink_pending(dn)) {
-    wait_for_pending_unlink(dn, mdr);
-    return;
-  }
 
   CDir *dir = dn->get_dir();
   CInode *diri = dir->get_inode();
@@ -7128,11 +7025,6 @@ void Server::handle_client_mkdir(MDRequestRef& mdr)
   if (!dn)
     return;
 
-  if (is_unlink_pending(dn)) {
-    wait_for_pending_unlink(dn, mdr);
-    return;
-  }
-
   CDir *dir = dn->get_dir();
   CInode *diri = dir->get_inode();
 
@@ -7226,11 +7118,6 @@ void Server::handle_client_symlink(MDRequestRef& mdr)
   CDentry *dn = rdlock_path_xlock_dentry(mdr, true);
   if (!dn)
     return;
-
-  if (is_unlink_pending(dn)) {
-    wait_for_pending_unlink(dn, mdr);
-    return;
-  }
 
   CDir *dir = dn->get_dir();
   CInode *diri = dir->get_inode();
@@ -7342,11 +7229,6 @@ void Server::handle_client_link(MDRequestRef& mdr)
     targeti = ret.second->get_projected_linkage()->get_inode();
   }
 
-  if (is_unlink_pending(destdn)) {
-    wait_for_pending_unlink(destdn, mdr);
-    return;
-  }
-
   ceph_assert(destdn->get_projected_linkage()->is_null());
   if (req->get_alternate_name().size() > alternate_name_max) {
     dout(10) << " alternate_name longer than " << alternate_name_max << dendl;
@@ -7400,14 +7282,9 @@ void Server::handle_client_link(MDRequestRef& mdr)
   SnapRealm *target_realm = target_pin->find_snaprealm();
   if (target_pin != dir->inode &&
       target_realm->get_subvolume_ino() !=
-      dir->inode->find_snaprealm()->get_subvolume_ino()) {
-    if (target_pin->is_stray()) {
-      mds->locker->drop_locks(mdr.get());
-      targeti->add_waiter(CInode::WAIT_UNLINK,
-                          new C_MDS_RetryRequest(mdcache, mdr));
-      mdlog->flush();
-      return;
-    }
+      dir->inode->find_snaprealm()->get_subvolume_ino() &&
+      /* The inode is temporarily located in the stray dir pending reintegration */
+      !target_pin->is_stray()) {
     dout(7) << "target is in different subvolume, failing..." << dendl;
     respond_to_request(mdr, -CEPHFS_EXDEV);
     return;
@@ -7636,17 +7513,11 @@ void Server::_link_remote_finish(MDRequestRef& mdr, bool inc,
   mdr->apply();
 
   MDRequestRef null_ref;
-  if (inc) {
+  if (inc)
     mdcache->send_dentry_link(dn, null_ref);
-  } else {
-    dn->state_clear(CDentry::STATE_UNLINKING);
+  else
     mdcache->send_dentry_unlink(dn, NULL, null_ref);
-
-    MDSContext::vec finished;
-    dn->take_waiting(CDentry::WAIT_UNLINK_FINISH, finished);
-    mdcache->mds->queue_waiters(finished);
-  }
-
+  
   // bump target popularity
   mds->balancer->hit_inode(targeti, META_POP_IWR);
   mds->balancer->hit_dir(dn->get_dir(), META_POP_IWR);
@@ -8016,24 +7887,9 @@ void Server::handle_client_unlink(MDRequestRef& mdr)
 
   if (rmdir)
     mdr->disable_lock_cache();
-
   CDentry *dn = rdlock_path_xlock_dentry(mdr, false, true);
   if (!dn)
     return;
-
-  if (is_reintegrate_pending(dn)) {
-    wait_for_pending_reintegrate(dn, mdr);
-    return;
-  }
-
-  // notify replica MDSes the dentry is under unlink
-  if (!dn->state_test(CDentry::STATE_UNLINKING)) {
-    dn->state_set(CDentry::STATE_UNLINKING);
-    mdcache->send_dentry_unlink(dn, nullptr, mdr, true);
-    if (dn->replica_unlinking_ref) {
-      return;
-    }
-  }
 
   CDentry::linkage_t *dnl = dn->get_linkage(client, mdr);
   ceph_assert(!dnl->is_null());
@@ -8051,13 +7907,11 @@ void Server::handle_client_unlink(MDRequestRef& mdr)
     if (rmdir) {
       // do empty directory checks
       if (_dir_is_nonempty_unlocked(mdr, in)) {
-        dn->state_clear(CDentry::STATE_UNLINKING);
-        respond_to_request(mdr, -CEPHFS_ENOTEMPTY);
+	respond_to_request(mdr, -CEPHFS_ENOTEMPTY);
 	return;
       }
     } else {
       dout(7) << "handle_client_unlink on dir " << *in << ", returning error" << dendl;
-      dn->state_clear(CDentry::STATE_UNLINKING);
       respond_to_request(mdr, -CEPHFS_EISDIR);
       return;
     }
@@ -8065,7 +7919,6 @@ void Server::handle_client_unlink(MDRequestRef& mdr)
     if (rmdir) {
       // unlink
       dout(7) << "handle_client_rmdir on non-dir " << *in << ", returning error" << dendl;
-      dn->state_clear(CDentry::STATE_UNLINKING);
       respond_to_request(mdr, -CEPHFS_ENOTDIR);
       return;
     }
@@ -8073,10 +7926,8 @@ void Server::handle_client_unlink(MDRequestRef& mdr)
 
   CInode *diri = dn->get_dir()->get_inode();
   if ((!mdr->has_more() || mdr->more()->witnessed.empty())) {
-    if (!check_access(mdr, diri, MAY_WRITE)) {
-      dn->state_clear(CDentry::STATE_UNLINKING);
+    if (!check_access(mdr, diri, MAY_WRITE))
       return;
-    }
   }
 
   // -- create stray dentry? --
@@ -8115,7 +7966,6 @@ void Server::handle_client_unlink(MDRequestRef& mdr)
   if (in->is_dir() &&
       _dir_is_nonempty(mdr, in)) {
     respond_to_request(mdr, -CEPHFS_ENOTEMPTY);
-    dn->state_clear(CDentry::STATE_UNLINKING);
     return;
   }
 
@@ -8314,14 +8164,9 @@ void Server::_unlink_local_finish(MDRequestRef& mdr,
   }
 
   mdr->apply();
-
-  dn->state_clear(CDentry::STATE_UNLINKING);
+  
   mdcache->send_dentry_unlink(dn, straydn, mdr);
-
-  MDSContext::vec finished;
-  dn->take_waiting(CDentry::WAIT_UNLINK_FINISH, finished);
-  mdcache->mds->queue_waiters(finished);
-
+  
   if (straydn) {
     // update subtree map?
     if (strayin->is_dir())
@@ -8336,7 +8181,7 @@ void Server::_unlink_local_finish(MDRequestRef& mdr,
 
   // reply
   respond_to_request(mdr, 0);
-
+  
   // removing a new dn?
   dn->get_dir()->try_remove_unlinked_dn(dn);
 
@@ -8792,16 +8637,6 @@ void Server::handle_client_rename(MDRequestRef& mdr)
   if (!destdn)
     return;
 
-  if (is_unlink_pending(destdn)) {
-    wait_for_pending_unlink(destdn, mdr);
-    return;
-  }
-
-  if (is_unlink_pending(srcdn)) {
-    wait_for_pending_unlink(srcdn, mdr);
-    return;
-  }
-
   dout(10) << " destdn " << *destdn << dendl;
   CDir *destdir = destdn->get_dir();
   ceph_assert(destdir->is_auth());
@@ -9217,12 +9052,6 @@ void Server::handle_client_rename(MDRequestRef& mdr)
   C_MDS_rename_finish *fin = new C_MDS_rename_finish(this, mdr, srcdn, destdn, straydn);
 
   journal_and_reply(mdr, srci, destdn, le, fin);
-
-  // trigger to flush mdlog in case reintegrating or migrating the stray dn,
-  // because the link requests maybe waiting.
-  if (srcdn->get_dir()->inode->is_stray()) {
-    mdlog->flush();
-  }
   mds->balancer->maybe_fragment(destdn->get_dir(), false);
 }
 
@@ -9832,14 +9661,6 @@ void Server::_rename_apply(MDRequestRef& mdr, CDentry *srcdn, CDentry *destdn, C
   }
 
   srcdn->get_dir()->unlink_inode(srcdn);
-
-  // After the stray dn being unlinked from the corresponding inode in case of
-  // reintegrate_stray/migrate_stray, just wake up the waitiers.
-  MDSContext::vec finished;
-  in->take_waiting(CInode::WAIT_UNLINK, finished);
-  if (!finished.empty()) {
-    mds->queue_waiters(finished);
-  }
 
   // dest
   if (srcdn_was_remote) {

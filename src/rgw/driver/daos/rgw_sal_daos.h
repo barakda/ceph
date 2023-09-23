@@ -299,8 +299,7 @@ class DaosBucket : public StoreBucket {
   virtual RGWAccessControlPolicy& get_acl(void) override { return acls; }
   virtual int set_acl(const DoutPrefixProvider* dpp,
                       RGWAccessControlPolicy& acl, optional_yield y) override;
-  virtual int load_bucket(const DoutPrefixProvider* dpp, optional_yield y,
-                          bool get_stats = false) override;
+  virtual int load_bucket(const DoutPrefixProvider* dpp, optional_yield y) override;
   virtual int read_stats(const DoutPrefixProvider* dpp,
                          const bucket_index_layout_generation& idx_layout,
                          int shard_id, std::string* bucket_ver,
@@ -314,7 +313,6 @@ class DaosBucket : public StoreBucket {
                                RGWGetBucketStats_CB* ctx) override;
   virtual int sync_user_stats(const DoutPrefixProvider* dpp,
                               optional_yield y) override;
-  virtual int update_container_stats(const DoutPrefixProvider* dpp) override;
   virtual int check_bucket_shards(const DoutPrefixProvider* dpp) override;
   virtual int chown(const DoutPrefixProvider* dpp, User& new_user,
                     optional_yield y) override;
@@ -414,7 +412,7 @@ class DaosZoneGroup : public StoreZoneGroup {
   virtual const std::string& get_api_name() const override {
     return group.api_name;
   };
-  virtual int get_placement_target_names(
+  virtual void get_placement_target_names(
       std::set<std::string>& names) const override;
   virtual const std::string& get_default_placement_name() const override {
     return group.default_placement.name;

@@ -94,6 +94,8 @@ created date, and the last modified date.
 
 .. index:: architecture; high availability, scalability
 
+.. _arch_scalability_and_high_availability:
+
 Scalability and High Availability
 ---------------------------------
 
@@ -179,21 +181,26 @@ information recording the overall health of the Ceph Storage Cluster.
 High Availability Monitors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Before Ceph Clients can read or write data, they must contact a Ceph Monitor
-to obtain the most recent copy of the cluster map. A Ceph Storage Cluster
-can operate with a single monitor; however, this introduces a single 
-point of failure (i.e., if the monitor goes down, Ceph Clients cannot
-read or write data).
+A Ceph Client must contact a Ceph Monitor and obtain a current copy of the
+cluster map in order to read data from or to write data to the Ceph cluster.
 
-For added reliability and fault tolerance, Ceph supports a cluster of monitors.
-In a cluster of monitors, latency and other faults can cause one or more
-monitors to fall behind the current state of the cluster. For this reason, Ceph
-must have agreement among various monitor instances regarding the state of the
-cluster. Ceph always uses a majority of monitors (e.g., 1, 2:3, 3:5, 4:6, etc.)
-and the `Paxos`_ algorithm to establish a consensus among the monitors about the
-current state of the cluster.
+It is possible for a Ceph cluster to function properly with only a single
+monitor, but a Ceph cluster that has only a single monitor has a single point
+of failure: if the monitor goes down, Ceph clients will be unable to read data
+from or write data to the cluster.
 
-For details on configuring monitors, see the `Monitor Config Reference`_.
+Ceph leverages a cluster of monitors in order to increase reliability and fault
+tolerance. When a cluster of monitors is used, however, one or more of the
+monitors in the cluster can fall behind due to latency or other faults. Ceph
+mitigates these negative effects by requiring multiple monitor instances to
+agree about the state of the cluster. To establish consensus among the monitors
+regarding the state of the cluster, Ceph uses the `Paxos`_ algorithm and a
+majority of monitors (for example, one in a cluster that contains only one
+monitor, two in a cluster that contains three monitors, three in a cluster that
+contains five monitors, four in a cluster that contains six monitors, and so
+on).
+
+See the `Monitor Config Reference`_ for more detail on configuring monitors.
 
 .. index:: architecture; high availability authentication
 
@@ -202,48 +209,57 @@ For details on configuring monitors, see the `Monitor Config Reference`_.
 High Availability Authentication
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To identify users and protect against man-in-the-middle attacks, Ceph provides
-its ``cephx`` authentication system to authenticate users and daemons.
+The ``cephx`` authentication system is used by Ceph to authenticate users and
+daemons and to protect against man-in-the-middle attacks. 
 
 .. note:: The ``cephx`` protocol does not address data encryption in transport 
-   (e.g., SSL/TLS) or encryption at rest.
+   (for example, SSL/TLS) or encryption at rest.
 
-Cephx uses shared secret keys for authentication, meaning both the client and
-the monitor cluster have a copy of the client's secret key. The authentication
-protocol is such that both parties are able to prove to each other they have a
-copy of the key without actually revealing it. This provides mutual
-authentication, which means the cluster is sure the user possesses the secret
-key, and the user is sure that the cluster has a copy of the secret key.
+``cephx`` uses shared secret keys for authentication. This means that both the
+client and the monitor cluster keep a copy of the client's secret key. 
 
-A key scalability feature of Ceph is to avoid a centralized interface to the
-Ceph object store, which means that Ceph clients must be able to interact with
-OSDs directly. To protect data, Ceph provides its ``cephx`` authentication
-system, which authenticates users operating Ceph clients. The ``cephx`` protocol
-operates in a manner with behavior similar to `Kerberos`_. 
+The ``cephx`` protocol makes it possible for each party to prove to the other
+that it has a copy of the key without revealing it. This provides mutual
+authentication and allows the cluster to confirm (1) that the user has the
+secret key and (2) that the user can be confident that the cluster has a copy
+of the secret key.
 
-A user/actor invokes a Ceph client to contact a monitor. Unlike Kerberos, each
-monitor can authenticate users and distribute keys, so there is no single point
-of failure or bottleneck when using ``cephx``. The monitor returns an
-authentication data structure similar to a Kerberos ticket that contains a
-session key for use in obtaining Ceph services.  This session key is itself
-encrypted with the user's permanent  secret key, so that only the user can
-request services from the Ceph Monitor(s). The client then uses the session key
-to request its desired services from the monitor, and the monitor provides the
-client with a ticket that will authenticate the client to the OSDs that actually
-handle data. Ceph Monitors and OSDs share a secret, so the client can use the
-ticket provided by the monitor with any OSD or metadata server in the cluster.
-Like Kerberos, ``cephx`` tickets expire, so an attacker cannot use an expired
-ticket or session key obtained surreptitiously. This form of authentication will
-prevent attackers with access to the communications medium from either creating
-bogus messages under another user's identity or altering another user's
-legitimate messages, as long as the user's secret key is not divulged before it
-expires.
+As stated in :ref:`Scalability and High Availability
+<arch_scalability_and_high_availability>`, Ceph does not have any centralized
+interface between clients and the Ceph object store. By avoiding such a
+centralized interface, Ceph avoids the bottlenecks that attend such centralized
+interfaces. However, this means that clients must interact directly with OSDs.
+Direct interactions between Ceph clients and OSDs require authenticated
+connections. The ``cephx`` authentication system establishes and sustains these
+authenticated connections.
 
-To use ``cephx``, an administrator must set up users first. In the following
-diagram, the ``client.admin`` user invokes  ``ceph auth get-or-create-key`` from
+The ``cephx`` protocol operates in a manner similar to `Kerberos`_. 
+
+A user invokes a Ceph client to contact a monitor. Unlike Kerberos, each
+monitor can authenticate users and distribute keys, which means that there is
+no single point of failure and no bottleneck when using ``cephx``. The monitor
+returns an authentication data structure that is similar to a Kerberos ticket.
+This authentication data structure contains a session key for use in obtaining
+Ceph services. The session key is itself encrypted with the user's permanent
+secret key, which means that only the user can request services from the Ceph
+Monitors. The client then uses the session key to request services from the
+monitors, and the monitors provide the client with a ticket that authenticates
+the client against the OSDs that actually handle data. Ceph Monitors and OSDs
+share a secret, which means that the clients can use the ticket provided by the
+monitors to authenticate against any OSD or metadata server in the cluster. 
+
+Like Kerberos tickets, ``cephx`` tickets expire. An attacker cannot use an
+expired ticket or session key that has been obtained surreptitiously. This form
+of authentication prevents attackers who have access to the communications
+medium from creating bogus messages under another user's identity and prevents
+attackers from altering another user's legitimate messages, as long as the
+user's secret key is not divulged before it expires.
+
+An administrator must set up users before using ``cephx``.  In the following
+diagram, the ``client.admin`` user invokes ``ceph auth get-or-create-key`` from
 the command line to generate a username and secret key. Ceph's ``auth``
-subsystem generates the username and key, stores a copy with the monitor(s) and
-transmits the user's secret back to the ``client.admin`` user. This means that 
+subsystem generates the username and key, stores a copy on the monitor(s), and
+transmits the user's secret back to the ``client.admin`` user. This means that
 the client and the monitor share a secret key.
 
 .. note:: The ``client.admin`` user must provide the user ID and 
@@ -261,7 +277,6 @@ the client and the monitor share a secret key.
                 |<--------------|<---------+ store key
                 | transmit key  |
                 |               |
-
 
 To authenticate with the monitor, the client passes in the user name to the
 monitor, and the monitor generates a session key and encrypts it with the secret
@@ -347,9 +362,14 @@ the user accesses the Ceph client from a remote host, Ceph authentication is not
 applied to the connection between the user's host and the client host.
 
 
-For configuration details, see `Cephx Config Guide`_. For user management 
-details, see `User Management`_.
+See `Cephx Config Guide`_ for more on configuration details. 
 
+See `User Management`_ for more on user management.
+
+See :ref:`A Detailed Description of the Cephx Authentication Protocol
+<cephx_2012_peter>` for more on the distinction between authorization and
+authentication and for a step-by-step explanation of the setup of ``cephx``
+tickets and session keys.
 
 .. index:: architecture; smart daemons and scalability
 
@@ -391,7 +411,7 @@ ability to leverage this computing power leads to several major benefits:
    and a new ``MOSDBeacon`` in luminous).  If the Ceph Monitor doesn't see that
    message after a configurable period of time then it marks the OSD down.
    This mechanism is a failsafe, however. Normally, Ceph OSD Daemons will
-   determine if a neighboring OSD is down and report it to the Ceph Monitor(s).
+   determine if a neighboring OSD is down and report it to the Ceph Monitors.
    This assures that Ceph Monitors are lightweight processes.  See `Monitoring
    OSDs`_ and `Heartbeats`_ for additional details.
 

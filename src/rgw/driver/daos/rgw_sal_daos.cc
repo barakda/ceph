@@ -452,8 +452,7 @@ int DaosBucket::put_info(const DoutPrefixProvider* dpp, bool exclusive,
   return ret;
 }
 
-int DaosBucket::load_bucket(const DoutPrefixProvider* dpp, optional_yield y,
-                            bool get_stats) {
+int DaosBucket::load_bucket(const DoutPrefixProvider* dpp, optional_yield y) {
   ldpp_dout(dpp, 20) << "DEBUG: load_bucket(): bucket name=" << get_name()
                      << dendl;
   int ret = open(dpp);
@@ -506,10 +505,6 @@ int DaosBucket::read_stats_async(
 
 int DaosBucket::sync_user_stats(const DoutPrefixProvider* dpp,
                                 optional_yield y) {
-  return DAOS_NOT_IMPLEMENTED_LOG(dpp);
-}
-
-int DaosBucket::update_container_stats(const DoutPrefixProvider* dpp) {
   return DAOS_NOT_IMPLEMENTED_LOG(dpp);
 }
 
@@ -826,13 +821,11 @@ bool DaosZoneGroup::placement_target_exists(std::string& target) const {
   return !!group.placement_targets.count(target);
 }
 
-int DaosZoneGroup::get_placement_target_names(
+void DaosZoneGroup::get_placement_target_names(
     std::set<std::string>& names) const {
   for (const auto& target : group.placement_targets) {
     names.emplace(target.second.name);
   }
-
-  return 0;
 }
 
 int DaosZoneGroup::get_placement_tier(const rgw_placement_rule& rule,

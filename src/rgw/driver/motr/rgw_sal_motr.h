@@ -359,7 +359,7 @@ class MotrBucket : public StoreBucket {
         DoutPrefixProvider *dpp) override;
     virtual RGWAccessControlPolicy& get_acl(void) override { return acls; }
     virtual int set_acl(const DoutPrefixProvider *dpp, RGWAccessControlPolicy& acl, optional_yield y) override;
-    virtual int load_bucket(const DoutPrefixProvider *dpp, optional_yield y, bool get_stats = false) override;
+    virtual int load_bucket(const DoutPrefixProvider *dpp, optional_yield y) override;
     int link_user(const DoutPrefixProvider* dpp, User* new_user, optional_yield y);
     int unlink_user(const DoutPrefixProvider* dpp, User* new_user, optional_yield y);
     int create_bucket_index();
@@ -373,9 +373,10 @@ class MotrBucket : public StoreBucket {
     virtual int read_stats_async(const DoutPrefixProvider *dpp,
                                  const bucket_index_layout_generation& idx_layout,
                                  int shard_id, RGWGetBucketStats_CB* ctx) override;
-    virtual int sync_user_stats(const DoutPrefixProvider *dpp, optional_yield y) override;
-    virtual int update_container_stats(const DoutPrefixProvider *dpp) override;
-    virtual int check_bucket_shards(const DoutPrefixProvider *dpp) override;
+    int sync_user_stats(const DoutPrefixProvider *dpp, optional_yield y,
+                        RGWBucketEnt* ent) override;
+    int check_bucket_shards(const DoutPrefixProvider *dpp,
+                            uint64_t num_objs) override;
     virtual int chown(const DoutPrefixProvider *dpp, User& new_user, optional_yield y) override;
     virtual int put_info(const DoutPrefixProvider *dpp, bool exclusive, ceph::real_time mtime) override;
     virtual bool is_owner(User* user) override;
@@ -425,6 +426,7 @@ public:
 };
 
 class MotrZoneGroup : public StoreZoneGroup {
+protected:
   MotrStore* store;
   const RGWZoneGroup group;
   std::string empty;
@@ -445,7 +447,7 @@ public:
     return group.is_master_zonegroup();
   };
   virtual const std::string& get_api_name() const override { return group.api_name; };
-  virtual int get_placement_target_names(std::set<std::string>& names) const override;
+  virtual void get_placement_target_names(std::set<std::string>& names) const override;
   virtual const std::string& get_default_placement_name() const override {
     return group.default_placement.name; };
   virtual int get_hostnames(std::list<std::string>& names) const override {
@@ -474,6 +476,7 @@ public:
   virtual std::unique_ptr<ZoneGroup> clone() override {
     return std::make_unique<MotrZoneGroup>(store, group);
   }
+  friend class MotrZone;
 };
 
 class MotrZone : public StoreZone {
@@ -502,8 +505,8 @@ class MotrZone : public StoreZone {
     MotrZone(MotrStore* _store, MotrZoneGroup _zg) : store(_store), zonegroup(_zg) {
       realm = new RGWRealm();
       // TODO: fetch zonegroup params (eg. id) from provisioner config.
-      zonegroup.set_id("0956b174-fe14-4f97-8b50-bb7ec5e1cf62");
-      zonegroup.api_name = "default";
+      //zonegroup.group.set_id("0956b174-fe14-4f97-8b50-bb7ec5e1cf62");
+      //zonegroup.group.api_name = "default";
       zone_public_config = new RGWZone();
       zone_params = new RGWZoneParams();
       current_period = new RGWPeriod();

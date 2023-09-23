@@ -7934,6 +7934,7 @@ int RGWRados::apply_olh_log(const DoutPrefixProvider *dpp,
     return r;
   }
 
+
   if (need_to_remove) {
     string olh_tag(state.olh_tag.c_str(), state.olh_tag.length());
     r = clear_olh(dpp, obj_ctx, obj, bucket_info, ref, olh_tag, last_ver, y);
@@ -7941,12 +7942,12 @@ int RGWRados::apply_olh_log(const DoutPrefixProvider *dpp,
       ldpp_dout(dpp, 0) << "ERROR: could not clear olh, r=" << r << dendl;
       return r;
     }
-  }
-
-  r = bucket_index_trim_olh_log(dpp, bucket_info, state, obj, last_ver, y);
-  if (r < 0 && r != -ECANCELED) {
-    ldpp_dout(dpp, 0) << "ERROR: could not trim olh log, r=" << r << dendl;
-    return r;
+  } else {
+    r = bucket_index_trim_olh_log(dpp, bucket_info, state, obj, last_ver, y);
+    if (r < 0 && r != -ECANCELED) {
+      ldpp_dout(dpp, 0) << "ERROR: could not trim olh log, r=" << r << dendl;
+      return r;
+    }
   }
 
   return 0;
@@ -7966,7 +7967,6 @@ int RGWRados::clear_olh(const DoutPrefixProvider *dpp,
   }
   return clear_olh(dpp, obj_ctx, obj, bucket_info, ref, tag, ver, y);
 }
-
 
 int RGWRados::clear_olh(const DoutPrefixProvider *dpp,
                         RGWObjectCtx& obj_ctx,
@@ -8102,6 +8102,13 @@ int RGWRados::set_olh(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
         }
         continue;
       }
+      // it's possible that the pending xattr from this op prevented the olh
+      // object from being cleaned by another thread that was deleting the last
+      // existing version. We invoke a best-effort update_olh here to handle this case.
+      int r = update_olh(dpp, obj_ctx, state, bucket_info, olh_obj, y);
+      if (r < 0 && r != -ECANCELED) {
+        ldpp_dout(dpp, 20) << "update_olh() target_obj=" << olh_obj << " returned " << r << dendl;
+      }
       return ret;
     }
     break;
@@ -8169,6 +8176,13 @@ int RGWRados::unlink_obj_instance(const DoutPrefixProvider *dpp, RGWObjectCtx& o
       ldpp_dout(dpp, 20) << "bucket_index_unlink_instance() target_obj=" << target_obj << " returned " << ret << dendl;
       if (ret == -ECANCELED) {
         continue;
+      }
+      // it's possible that the pending xattr from this op prevented the olh
+      // object from being cleaned by another thread that was deleting the last
+      // existing version. We invoke a best-effort update_olh here to handle this case.
+      int r = update_olh(dpp, obj_ctx, state, bucket_info, olh_obj, y, zones_trace);
+      if (r < 0 && r != -ECANCELED) {
+        ldpp_dout(dpp, 20) << "update_olh() target_obj=" << olh_obj << " returned " << r << dendl;
       }
       return ret;
     }
@@ -8600,48 +8614,6 @@ int RGWRados::put_linked_bucket_info(RGWBucketInfo& info, bool exclusive, real_t
     return ret;
 
   return 0;
-}
-
-int RGWRados::update_containers_stats(map<string, RGWBucketEnt>& m, const DoutPrefixProvider *dpp, optional_yield y)
-{
-  map<string, RGWBucketEnt>::iterator iter;
-  for (iter = m.begin(); iter != m.end(); ++iter) {
-    RGWBucketEnt& ent = iter->second;
-    rgw_bucket& bucket = ent.bucket;
-    ent.count = 0;
-    ent.size = 0;
-    ent.size_rounded = 0;
-
-    vector<rgw_bucket_dir_header> headers;
-
-    RGWBucketInfo bucket_info;
-    int ret = get_bucket_instance_info(bucket, bucket_info, NULL, NULL, y, dpp);
-    if (ret < 0) {
-      return ret;
-    }
-
-    int r = cls_bucket_head(dpp, bucket_info, bucket_info.layout.current_index, RGW_NO_SHARD, headers);
-    if (r < 0)
-      return r;
-
-    auto hiter = headers.begin();
-    for (; hiter != headers.end(); ++hiter) {
-      RGWObjCategory category = main_category;
-      auto iter = (hiter->stats).find(category);
-      if (iter != hiter->stats.end()) {
-        struct rgw_bucket_category_stats& stats = iter->second;
-        ent.count += stats.num_entries;
-        ent.size += stats.total_size;
-        ent.size_rounded += stats.total_size_rounded;
-      }
-    }
-
-    // fill in placement_rule from the bucket instance for use in swift's
-    // per-storage policy statistics
-    ent.placement_rule = std::move(bucket_info.placement_rule);
-  }
-
-  return m.size();
 }
 
 int RGWRados::append_async(const DoutPrefixProvider *dpp, rgw_raw_obj& obj, size_t size, bufferlist& bl)
@@ -10082,7 +10054,6 @@ int RGWRados::cls_bucket_head_async(const DoutPrefixProvider *dpp, const RGWBuck
 }
 
 int RGWRados::check_bucket_shards(const RGWBucketInfo& bucket_info,
-				  const rgw_bucket& bucket,
 				  uint64_t num_objs,
                                   const DoutPrefixProvider *dpp, optional_yield y)
 {
@@ -10121,7 +10092,7 @@ int RGWRados::check_bucket_shards(const RGWBucketInfo& bucket_info,
     return 0;
   }
 
-  ldpp_dout(dpp, 1) << "RGWRados::" << __func__ << " bucket " << bucket.name <<
+  ldpp_dout(dpp, 1) << "RGWRados::" << __func__ << " bucket " << bucket_info.bucket.name <<
     " needs resharding; current num shards " << bucket_info.layout.current_index.layout.normal.num_shards <<
     "; new num shards " << final_num_shards << " (suggested " <<
     suggested_num_shards << ")" << dendl;
