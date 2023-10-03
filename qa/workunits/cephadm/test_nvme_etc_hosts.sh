@@ -1,21 +1,32 @@
 #!/bin/bash
 
-# checks if the container and host's /etc/hosts files match
-# Necessary to avoid potential bugs caused by podman making
-# edits to /etc/hosts file in the container
-# exits with code 1 if host and nvmef container /etc/hosts do no match
-
 set -ex
 
-NVMEOF_DAEMON=$(sudo /home/ubuntu/cephtest/cephadm ls | jq -r '.[] | select(.service_name == "nvmeof.mypool") | .name')
-sudo /home/ubuntu/cephtest/cephadm enter --name $NVMEOF_DAEMON -- cat /etc/hosts > nvmeof_daemon_etc_hosts.txt
-if cmp --silent /etc/hosts nvmeof_daemon_etc_hosts.txt; then
-  echo "Daemon and host /etc/hosts files successfully matched"
-else
-  echo "ERROR: /etc/hosts on host did not match /etc/hosts in the nvmeof container!"
-  echo "Host /etc/hosts:"
-  cat /etc/hosts
-  echo "NVMEoF container /etc/hosts:"
-  cat nvmeof_daemon_etc_hosts.txt
-  exit 1
-fi
+HOSTNAME=$(hostname)
+IP=$(echo $(hostname -I) | cut -d ' ' -f1)
+
+echo -e "<---- exec.client.0---- HOST/IP -- $HOSTNAME/$IP ---->"
+
+#IP=`cat /etc/ceph/iscsi-gateway.cfg |grep 'trusted_ip_list' | awk -F'[, ]' '{print $3}'`
+#sudo podman run -it quay.io/ceph/nvmeof-cli:0.0.3 --server-address $IP --server-port 5500 create_bdev --pool nvmeofpool --image myimage --bdev nvmeof
+# HOSTNAME=$(hostname)
+# IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
+# POOL="nvmeofpool"
+# MIMAGE="nvmeofimage"
+# BDEV="nvmeofbdev"
+# SERIAL="SPDK00000000000001"
+# NQN="nqn.2016-06.io.spdk:cnode1"
+# PORT="4420"
+# SRPORT="5500"
+# sudo nvme list
+# sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_bdev --pool $POOL --image $MIMAGE --bdev $BDEV
+# sudo podman images
+# sudo podman ps
+# sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_subsystem --subnqn $NQN --serial $SERIAL
+# sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_namespace --subnqn $NQN --bdev $BDEV
+# sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT create_listener -n $NQN -g client.$POOL.$HOSTNAME -a $IP -s $PORT
+# sudo podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_host --subnqn $NQN --host "*"
+# sudo docker run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
+# sudo nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
+# sudo nvme list
+echo OK

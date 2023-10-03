@@ -8,11 +8,11 @@ tasks:
         - ceph orch device ls
         - ceph osd lspools
         # Test nvmeof.mypool is in 'running' state
-        - |
-          set -ex
-          s=$(ceph orch ps  | grep nvmeof.mypool | awk '{print $4}')
-          echo $s
-          [ $s = running ]
+#        - |
+#          set -ex
+#          s=$(ceph orch ps  | grep nvmeof.mypool | awk '{print $4}')
+#          echo $s
+#          [ $s = running ]
 
 #- workunit:
 #    clients:

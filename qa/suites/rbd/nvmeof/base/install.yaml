@@ -34,12 +34,6 @@ tasks:
     clients:
       client.0:
         - cephadm/test_nvme_etc_hosts.sh
-        - |
-          set -ex
-          #
-          HOSTNAME=$(hostname)
-          IP=$(echo $(hostname -I) | cut -d ' ' -f1)
-          echo -e "<---- exec.client.0---- HOST/IP -- $HOSTNAME/$IP ---->"
 
 - cephadm.wait_for_service:
     service: nvmeof.mypool
