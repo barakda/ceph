@@ -6,7 +6,6 @@ IP=$(echo $(hostname -I) | cut -d ' ' -f1)
 
 echo -e "<exec.client.1sh---- HOST/IP -- $HOSTNAME/$IP ---->"
 
-#IP=`cat /etc/ceph/iscsi-gateway.cfg |grep 'trusted_ip_list' | awk -F'[, ]' '{print $3}'`
 #sudo podman run -it quay.io/ceph/nvmeof-cli:0.0.3 --server-address $IP --server-port 5500 create_bdev --pool nvmeofpool --image myimage --bdev nvmeof
 # HOSTNAME=$(hostname)
 # IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
@@ -28,5 +27,5 @@ echo -e "<exec.client.1sh---- HOST/IP -- $HOSTNAME/$IP ---->"
 # sudo docker run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
 # sudo nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
 # sudo nvme list
-echo OK
+
 

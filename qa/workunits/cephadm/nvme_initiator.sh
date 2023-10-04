@@ -29,4 +29,4 @@ echo -e "<---- exec.client.0---- HOST/IP -- $HOSTNAME/$IP ---->"
 # sudo docker run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
 # sudo nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
 # sudo nvme list
-echo OK
+
