@@ -17,6 +17,7 @@ tasks:
     - ceph osd pool ls detail
     # deploy nvmeof
     - ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/ceph/nvmeof:0.0.3
+    - sleep 60
     - ceph config get mgr mgr/cephadm/container_image_nvmeof
     - ceph orch apply nvmeof mypool --placement="1 $(hostname)"
     - ceph orch ps --refresh
