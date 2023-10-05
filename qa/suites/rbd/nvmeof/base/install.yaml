@@ -31,6 +31,7 @@ tasks:
 
 - exec:
     host.a:
+    - "modprobe nvme-fabrics"
     - |
       set -ex
       #
@@ -38,7 +39,7 @@ tasks:
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       echo "<---- s variable is [ $s ]---->"
       PAGER=cat journalctl -u $s
-      GATEWAY=echo $s | cut -d "@" -f2- | sed 's/.\{8\}$//'
+      GATEWAY=$(echo $s | cut -d "@" -f2- | sed 's/.\{8\}$//')
       echo "<---- GATEWAY is [ $GATEWAY ]---->"
       IP=$(echo $(hostname -I) | cut -d ' ' -f1)
       HOSTNAME=$(hostname)
