@@ -36,8 +36,10 @@ tasks:
       #
       # print nvmeof start up logs
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
+      echo "<---- s variable is [ $s ]---->"
       PAGER=cat journalctl -u $s
-      GATEWAY=$(systemctl list-units | grep nvmeof.nvmeof-pool | awk '{print $1}' | cut -d "@" -f2- | sed 's/.\{8\}$//')
+      GATEWAY=$(echo $s | cut -d "@" -f2- | sed 's/.\{8\}$//')
+      echo "<---- GATEWAY is [ $GATEWAY ]---->"
       IP=$(echo $(hostname -I) | cut -d ' ' -f1)
       HOSTNAME=$(hostname)
       IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
@@ -59,6 +61,7 @@ tasks:
       nvme discover -t tcp -a $IP -s $PORT
       nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
       nvme list
+
 #
 #- exec:
 #    client.1:
