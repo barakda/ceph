@@ -5,14 +5,14 @@ roles:
   - osd.0
   - osd.1
   - client.0
-- - host.b
-  - mon.b
-  - osd.2
-  - osd.3
-  - osd.4
-  - client.1
-- - mon.c
-  - osd.5
-  - osd.6
-  - osd.7
-  - client.2
+#- - host.b
+#  - mon.b
+#  - osd.2
+#  - osd.3
+#  - osd.4
+#  - client.1
+#- - mon.c
+#  - osd.5
+#  - osd.6
+#  - osd.7
+#  - client.2
