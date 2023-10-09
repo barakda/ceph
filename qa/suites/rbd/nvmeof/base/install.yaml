@@ -16,9 +16,7 @@ tasks:
     - ceph osd lspools
     - ceph osd pool ls detail
     # deploy nvmeof
-    - sleep 60
-    - ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/ceph/nvmeof:0.0.4
-    - sleep 60
+    - ceph config set mgr mgr/cephadm/container_image_nvmeof quay.io/barakda1/nvmeof:0.0.3
     - ceph config get mgr mgr/cephadm/container_image_nvmeof
     - ceph orch apply nvmeof mypool --placement="1 $(hostname)"
     - ceph orch ps --refresh
@@ -27,20 +25,20 @@ tasks:
     - ceph orch ls
     - rbd create mypool/myimage --size 8Gi
     - rbd ls mypool
-    - |
-      set -ex
-      #
-      cat /proc/cpuinfo
-
-- exec:
-    host.a:
-    - |
-      set -ex
-      #
-      # print nvmeof start up logs
-      s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
-      echo "<---- s variable is [ $s ]---->"
-      PAGER=cat journalctl -u $s
+#    - |
+#      set -ex
+#      #
+#      cat /proc/cpuinfo
+#
+#- exec:
+#    host.a:
+#    - |
+#      set -ex
+#      #
+#      # print nvmeof start up logs
+#      s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
+#      echo "<---- s variable is [ $s ]---->"
+#      PAGER=cat journalctl -u $s
 
 - cephadm.wait_for_service:
     service: nvmeof.mypool
@@ -59,7 +57,7 @@ tasks:
       echo "<---- GATEWAY is [ $GATEWAY ]---->"
       IP=$(echo $(hostname -I) | cut -d ' ' -f1)
       HOSTNAME=$(hostname)
-      IMAGE="quay.io/ceph/nvmeof-cli:0.0.4"
+      IMAGE="quay.io/ceph/nvmeof-cli:0.0.3"
       POOL="mypool"
       MIMAGE="myimage"
       BDEV="mybdev"
