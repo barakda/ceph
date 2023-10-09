@@ -31,11 +31,16 @@ tasks:
       set -ex
       #
       cat /proc/cpuinfo
+
+- exec:
+    host.a:
+    - |
+      set -ex
+      #
       # print nvmeof start up logs
       s=$(systemctl list-units | grep nvmeof.mypool | awk '{print $1}')
       echo "<---- s variable is [ $s ]---->"
       PAGER=cat journalctl -u $s
-
 
 - cephadm.wait_for_service:
     service: nvmeof.mypool
