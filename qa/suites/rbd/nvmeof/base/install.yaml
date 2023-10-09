@@ -46,6 +46,7 @@ tasks:
 - exec:
     host.a:
     - "modprobe nvme-fabrics"
+    - "modprobe nvme-tcp"
     - |
       set -ex
       #
@@ -74,6 +75,7 @@ tasks:
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT add_host --subnqn $NQN --host "*"
       podman run -it $IMAGE --server-address $IP --server-port $SRPORT get_subsystems
       nvme discover -t tcp -a $IP -s $PORT
+      dmesg -T
       nvme connect -t tcp --traddr $IP -s $PORT -n $NQN
       nvme list
 
