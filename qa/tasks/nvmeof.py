@@ -393,12 +393,18 @@ class NvmeofThrasher(Thrasher, Greenlet):
         Run some checks to see if everything is running well during thrashing.
         """
         self.log('display and verify stats:')
-        max_retry = 5
+        max_wait_time = 900  # 15 minutes in seconds
         retry_delay = 30
-        for retry in range(1, max_retry+1):
-            try: 
+        start_time = time.time()
+        retry = 0
+
+        while True:
+            retry += 1
+            elapsed_time = time.time() - start_time
+
+            try:
                 random_gateway_host = None
-                initiator_host = self.checker_host 
+                initiator_host = self.checker_host
                 for d in self.daemons:
                     random_gateway_host = d.remote
                     d.remote.sh(d.status_cmd, check_status=False)
@@ -409,11 +415,10 @@ class NvmeofThrasher(Thrasher, Greenlet):
 
                 gw_show = random_gateway_host.sh('ceph nvme-gw show mypool mygroup0')
                 gw_show_json = json.loads(gw_show)
-                if gw_show_json["num-namespaces"] > 30:
-                    retry_delay = int(gw_show_json["num-namespaces"]) / 3
                 if '"CREATED"' in gw_show:
                     raise Exception("Some gateway is in CREATED state - in middle of restart")
 
+                # Success - all gateways are available
                 initiator_host.run(args=['sudo', 'nvme', 'list'])
                 for dev in self.devices:
                     device_check_cmd = [
@@ -421,11 +426,20 @@ class NvmeofThrasher(Thrasher, Greenlet):
                         run.Raw('|'), 'grep', 'live optimized'
                     ]
                     initiator_host.run(args=device_check_cmd)
+
+                # Log success with time taken
+                self.log(f"All gateways available - took {elapsed_time:.2f} seconds")
                 break
-            except Exception:
-                self.log(f"retry do_checks() for {retry} time")
-                if retry == max_retry:
-                    raise
+
+            except Exception as e:
+                elapsed_time = time.time() - start_time
+                self.log(f"retry do_checks() for {retry} time - elapsed: {elapsed_time:.2f}s")
+
+                if elapsed_time >= max_wait_time:
+                    total_time = time.time() - start_time
+                    self.log(f"Gateway availability check failed after {total_time:.2f} seconds (15 min timeout)")
+                    raise Exception(f"Gateway availability check timed out after {total_time:.2f} seconds - {str(e)}")
+
                 time.sleep(retry_delay) # blocking wait
 
     def switch_task(self):

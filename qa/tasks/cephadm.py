@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import time
 import uuid
 import yaml
 
@@ -595,7 +596,21 @@ def pull_image(ctx, config):
             '--registry-password', registry['password'],
         ]
         cmd = login_cmd + [run.Raw('&&')] + cmd
-    run.wait(ctx.cluster.run(args=cmd, wait=False))
+    max_retries = 3
+    retry_delay = 15  # seconds
+    for attempt in range(1, max_retries + 1):
+        log.info(f'Pulling image (attempt {attempt}/{max_retries})...')
+        try:
+            run.wait(ctx.cluster.run(args=cmd, wait=False))
+            break
+        except CommandFailedError as e:
+            if attempt == max_retries:
+                raise
+            log.warning(
+                f'Image pull failed (attempt {attempt}/{max_retries}): {e}. '
+                f'Retrying in {retry_delay}s...'
+            )
+            time.sleep(retry_delay)
 
     try:
         yield
@@ -1167,7 +1182,7 @@ def ceph_osds(ctx, config):
                 try:
                     _shell(ctx, cluster_name, remote, add_osd_args + ['--skip-validation'])
                 except Exception as e:
-                    log.warning(f"--skip-validation falied with error {e}. Retrying without it")
+                    log.warning(f"--skip-validation failed with error {e}. Retrying without it")
                     use_skip_validation = False
                     _shell(ctx, cluster_name, remote, add_osd_args)
             else:
